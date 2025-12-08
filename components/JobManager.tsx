@@ -12,6 +12,7 @@ interface JobManagerProps {
   onDeleteJob: (id: string) => void;
   onBulkAddJobs: (jobs: Job[]) => void;
   currentUser: User;
+  isDarkMode?: boolean;
 }
 
 export const JobManager: React.FC<JobManagerProps> = ({
@@ -22,7 +23,8 @@ export const JobManager: React.FC<JobManagerProps> = ({
   onUpdateJob,
   onDeleteJob,
   onBulkAddJobs,
-  currentUser
+  currentUser,
+  isDarkMode = false
 }) => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,6 +36,17 @@ export const JobManager: React.FC<JobManagerProps> = ({
     dateInput: new Date().toISOString().split('T')[0],
     keterangan: ''
   });
+
+  // Theme Helpers
+  const cardClass = isDarkMode ? "bg-gray-800 border-gray-700 shadow-lg" : "bg-white border-gray-100 shadow-sm";
+  const textTitle = isDarkMode ? "text-white" : "text-gray-800";
+  const textSub = isDarkMode ? "text-gray-400" : "text-gray-500";
+  const textLabel = isDarkMode ? "text-gray-300" : "text-gray-700";
+  const inputClass = isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-400" : "border-gray-300 focus:ring-blue-500";
+  const tableHeaderClass = isDarkMode ? "bg-gray-900 text-gray-300 border-gray-700" : "bg-gray-50 text-gray-600 border-gray-200";
+  const tableRowClass = isDarkMode ? "hover:bg-gray-700 border-gray-700" : "hover:bg-gray-50 border-gray-100";
+  const tableText = isDarkMode ? "text-gray-200" : "text-gray-800";
+  const buttonSecondary = isDarkMode ? "bg-gray-700 text-white hover:bg-gray-600 border-gray-600" : "bg-white text-gray-700 hover:bg-gray-50 border-gray-300";
 
   const isProductionMaster = category === "Produksi Master Data";
 
@@ -192,15 +205,15 @@ export const JobManager: React.FC<JobManagerProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 min-h-[600px] flex flex-col">
-      <div className="p-6 border-b border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+    <div className={`${cardClass} rounded-xl border min-h-[600px] flex flex-col`}>
+      <div className={`p-6 border-b flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
         <div>
-          <div className="flex items-center text-sm text-gray-500 mb-1">
+          <div className={`flex items-center text-sm mb-1 ${textSub}`}>
             <span>{category}</span>
             <span className="mx-2">/</span>
-            <span className="font-medium text-gray-900">{subCategory}</span>
+            <span className={`font-medium ${textTitle}`}>{subCategory}</span>
           </div>
-          <h2 className="text-xl font-bold text-gray-800">Daftar Pekerjaan</h2>
+          <h2 className={`text-xl font-bold ${textTitle}`}>Daftar Pekerjaan</h2>
         </div>
         
         <div className="flex flex-wrap gap-2 w-full xl:w-auto">
@@ -215,7 +228,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
               />
               <button 
                 onClick={handleDownloadTemplate}
-                className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                className={`flex items-center justify-center px-4 py-2 border rounded-lg transition-colors text-sm font-medium ${buttonSecondary}`}
                 title="Download Template Excel/CSV"
               >
                 <FileDown className="w-4 h-4 mr-2" />
@@ -239,7 +252,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
           ) : (
              <button 
                 onClick={handleCancel}
-                className="flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                className={`flex items-center justify-center px-4 py-2 rounded-lg transition-colors text-sm font-medium ${isDarkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 <X className="w-4 h-4 mr-2" />
                 Kembali ke List
@@ -251,49 +264,49 @@ export const JobManager: React.FC<JobManagerProps> = ({
       <div className="p-6 flex-1">
         {view === 'form' ? (
           <div className="max-w-2xl mx-auto">
-            <h3 className="text-lg font-semibold mb-6">{editingId ? 'Edit Data Pekerjaan' : 'Input Data Pekerjaan Baru'}</h3>
+            <h3 className={`text-lg font-semibold mb-6 ${textTitle}`}>{editingId ? 'Edit Data Pekerjaan' : 'Input Data Pekerjaan Baru'}</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Input</label>
+                  <label className={`block text-sm font-medium mb-1 ${textLabel}`}>Tanggal Input</label>
                   <input 
                     type="date" 
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 ${inputClass}`}
                     value={formData.dateInput}
                     onChange={e => setFormData({...formData, dateInput: e.target.value})}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cabang / Dept</label>
+                  <label className={`block text-sm font-medium mb-1 ${textLabel}`}>Cabang / Dept</label>
                   <input 
                     type="text" 
                     required
                     placeholder="Contoh: Jakarta / Ops"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 ${inputClass}`}
                     value={formData.branchDept}
                     onChange={e => setFormData({...formData, branchDept: e.target.value})}
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Pekerjaan</label>
+                  <label className={`block text-sm font-medium mb-1 ${textLabel}`}>Jenis Pekerjaan</label>
                   <input 
                     type="text" 
                     required
                     placeholder="Deskripsi pekerjaan..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 ${inputClass}`}
                     value={formData.jobType}
                     onChange={e => setFormData({...formData, jobType: e.target.value})}
                   />
                 </div>
 
                  <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan (Optional)</label>
+                  <label className={`block text-sm font-medium mb-1 ${textLabel}`}>Keterangan (Optional)</label>
                   <textarea 
                     placeholder="Tambahkan catatan atau keterangan tambahan..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 min-h-[80px] ${inputClass}`}
                     value={formData.keterangan || ''}
                     onChange={e => setFormData({...formData, keterangan: e.target.value})}
                   />
@@ -301,11 +314,11 @@ export const JobManager: React.FC<JobManagerProps> = ({
 
                 {isProductionMaster && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Aktifasi</label>
+                    <label className={`block text-sm font-medium mb-1 ${textLabel}`}>Tanggal Aktifasi</label>
                     <input 
                       type="date" 
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 ${inputClass}`}
                       value={formData.activationDate || ''}
                       onChange={e => setFormData({...formData, activationDate: e.target.value})}
                     />
@@ -313,9 +326,9 @@ export const JobManager: React.FC<JobManagerProps> = ({
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className={`block text-sm font-medium mb-1 ${textLabel}`}>Status</label>
                   <select 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 ${inputClass}`}
                     value={formData.status}
                     onChange={e => setFormData({...formData, status: e.target.value as Status})}
                   >
@@ -326,11 +339,11 @@ export const JobManager: React.FC<JobManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Dateline (Batas Waktu)</label>
+                  <label className={`block text-sm font-medium mb-1 ${textLabel}`}>Dateline (Batas Waktu)</label>
                   <input 
                     type="date" 
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 ${inputClass}`}
                     value={formData.deadline}
                     onChange={e => setFormData({...formData, deadline: e.target.value})}
                   />
@@ -341,7 +354,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                  <button 
                   type="button"
                   onClick={handleCancel}
-                  className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium shadow-sm"
+                  className={`px-6 py-2 border rounded-lg transition-colors font-medium shadow-sm ${buttonSecondary}`}
                 >
                   Batal
                 </button>
@@ -361,15 +374,15 @@ export const JobManager: React.FC<JobManagerProps> = ({
               <input 
                 type="text" 
                 placeholder="Cari Cabang, Jenis Pekerjaan, atau Keterangan..." 
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                className={`w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${inputClass}`}
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className={`overflow-x-auto rounded-lg border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
               <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
+                <thead className={`${tableHeaderClass} border-b font-semibold`}>
                   <tr>
                     <th className="p-4 whitespace-nowrap">Tanggal</th>
                     <th className="p-4 whitespace-nowrap">Cabang / Dept</th>
@@ -382,7 +395,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                     <th className="p-4 text-center">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
                   {filteredJobs.length === 0 ? (
                     <tr>
                       <td colSpan={isProductionMaster ? 9 : 8} className="p-8 text-center text-gray-400">
@@ -391,13 +404,13 @@ export const JobManager: React.FC<JobManagerProps> = ({
                     </tr>
                   ) : (
                     filteredJobs.map((job) => (
-                      <tr key={job.id} className="hover:bg-gray-50 group transition-colors">
-                        <td className="p-4">{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
-                        <td className="p-4 font-medium text-gray-800">{job.branchDept}</td>
-                        <td className="p-4 max-w-xs">{job.jobType}</td>
+                      <tr key={job.id} className={`${tableRowClass} transition-colors`}>
+                        <td className={`p-4 ${tableText}`}>{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
+                        <td className={`p-4 font-medium ${tableText}`}>{job.branchDept}</td>
+                        <td className={`p-4 max-w-xs ${tableText}`}>{job.jobType}</td>
                         <td className="p-4 max-w-xs text-gray-500 italic">{job.keterangan || '-'}</td>
                         {isProductionMaster && (
-                          <td className="p-4">{job.activationDate ? new Date(job.activationDate).toLocaleDateString('id-ID') : '-'}</td>
+                          <td className={`p-4 ${tableText}`}>{job.activationDate ? new Date(job.activationDate).toLocaleDateString('id-ID') : '-'}</td>
                         )}
                         <td className="p-4">
                           <select 
@@ -413,7 +426,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                         <td className="p-4">
                            <input 
                               type="date"
-                              className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}
+                              className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : (isDarkMode ? 'text-gray-300' : 'text-gray-600')}`}
                               value={job.deadline}
                               onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
                            />
@@ -425,14 +438,14 @@ export const JobManager: React.FC<JobManagerProps> = ({
                           <div className="flex items-center justify-center gap-2">
                               <button 
                                 onClick={() => handleEdit(job)}
-                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all"
+                                className={`p-1.5 rounded-md transition-all ${isDarkMode ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-700' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
                                 title="Edit"
                               >
                                 <Pencil className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => onDeleteJob(job.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
+                                className={`p-1.5 rounded-md transition-all ${isDarkMode ? 'text-gray-400 hover:text-red-400 hover:bg-gray-700' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
                                 title="Hapus"
                               >
                                 <Trash2 className="w-4 h-4" />
