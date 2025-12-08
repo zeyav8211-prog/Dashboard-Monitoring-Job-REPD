@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid 
 } from 'recharts';
-import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle, X, MapPin, Briefcase, User, AlignLeft, Calendar } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff } from 'lucide-react';
 
 interface DashboardSummaryProps {
   jobs: Job[];
@@ -16,11 +16,9 @@ interface DashboardSummaryProps {
   isSaving?: boolean;
   connectionError?: boolean;
   lastUpdated?: Date | null;
-  isDarkMode?: boolean;
 }
 
-// Colors for Pie Chart: Pending, InProgress, Completed, Overdue, Hold, Cancel
-const COLORS = ['#0088FE', '#FFBB28', '#00C49F', '#EE2E24', '#F59E0B', '#6B7280'];
+const COLORS = ['#0088FE', '#FFBB28', '#00C49F', '#EE2E24'];
 
 export const DashboardSummary: React.FC<DashboardSummaryProps> = ({ 
     jobs, 
@@ -29,40 +27,27 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     isLoading = false,
     isSaving = false,
     connectionError = false,
-    lastUpdated = null,
-    isDarkMode = false
+    lastUpdated = null
 }) => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Theme Helpers
-  const cardClass = isDarkMode ? "bg-gray-800 border-gray-700 shadow-lg" : "bg-white border-gray-100 shadow-sm";
-  const textTitle = isDarkMode ? "text-white" : "text-gray-800";
-  const textSub = isDarkMode ? "text-gray-400" : "text-gray-500";
-  const inputClass = isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-200 text-gray-800";
-  const tableHeaderClass = isDarkMode ? "bg-gray-900 text-gray-300 border-gray-700" : "bg-gray-50 text-gray-600 border-gray-200";
-  const tableRowClass = isDarkMode ? "hover:bg-gray-700 border-gray-700 cursor-pointer" : "hover:bg-gray-50 border-gray-100 cursor-pointer";
-  const tableText = isDarkMode ? "text-gray-200" : "text-gray-800";
 
   const stats = useMemo(() => {
     const total = jobs.length;
     const completed = jobs.filter(j => j.status === 'Completed').length;
     const pending = jobs.filter(j => j.status === 'Pending').length;
     const inProgress = jobs.filter(j => j.status === 'In Progress').length;
-    const hold = jobs.filter(j => j.status === 'Hold').length;
-    const cancel = jobs.filter(j => j.status === 'Cancel').length;
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     const overdueJobs = jobs.filter(j => {
       const deadline = new Date(j.deadline);
-      return deadline < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold';
+      return deadline < today && j.status !== 'Completed';
     });
 
-    return { total, completed, pending, inProgress, hold, cancel, overdue: overdueJobs.length, overdueList: overdueJobs };
+    return { total, completed, pending, inProgress, overdue: overdueJobs.length, overdueList: overdueJobs };
   }, [jobs]);
 
   const pieData = [
@@ -70,8 +55,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     { name: 'In Progress', value: stats.inProgress },
     { name: 'Completed', value: stats.completed },
     { name: 'Overdue', value: stats.overdue },
-    { name: 'Hold', value: stats.hold },
-    { name: 'Cancel', value: stats.cancel },
   ];
 
   const barData = useMemo(() => {
@@ -95,7 +78,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
 
   const handleDownloadTemplate = () => {
     const headers = "Kategori,Sub Kategori,Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Dateline (YYYY-MM-DD),Keterangan";
-    const exampleRow = "Penyesuaian,Harga Jual,2024-03-20,Jakarta,Update Tarif,Pending,2024-03-25,Catatan Tambahan";
+    const exampleRow = "Penyesuaian,Publish Rate,2024-03-20,Jakarta,Update Tarif,Pending,2024-03-25,Catatan Tambahan";
     const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + exampleRow;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -124,7 +107,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         if (cols.length >= 7 && cols[0] && cols[1]) {
             const rawStatus = cols[5]?.trim();
             let validStatus: Status = 'Pending';
-            if (['In Progress', 'Completed', 'Overdue', 'Hold', 'Cancel'].includes(rawStatus)) {
+            if (rawStatus === 'In Progress' || rawStatus === 'Completed' || rawStatus === 'Overdue') {
                 validStatus = rawStatus as Status;
             }
 
@@ -164,18 +147,14 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     } else if (filterStatus === 'Overdue') {
         const today = new Date();
         today.setHours(0,0,0,0);
-        result = jobs.filter(j => new Date(j.deadline) < today && j.status !== 'Completed' && j.status !== 'Hold' && j.status !== 'Cancel');
+        result = jobs.filter(j => new Date(j.deadline) < today && j.status !== 'Completed');
     } else if (filterStatus === 'In Progress') {
         result = jobs.filter(j => j.status === 'In Progress' || j.status === 'Pending');
-    } else if (filterStatus === 'Hold') {
-        result = jobs.filter(j => j.status === 'Hold');
-    } else if (filterStatus === 'Cancel') {
-        result = jobs.filter(j => j.status === 'Cancel');
     } else if (Object.keys(MENU_STRUCTURE).includes(filterStatus)) {
         // Handle Category Filtering logic
         result = jobs.filter(j => j.category === filterStatus);
     } else {
-        // Handle standard Status Filtering logic (Completed, etc)
+        // Handle Status Filtering logic
         result = jobs.filter(j => j.status === filterStatus);
     }
 
@@ -191,13 +170,11 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
   }, [jobs, filterStatus, searchTerm]);
 
   const getStatusColor = (status: Status, deadline: string) => {
-    const isOverdue = new Date() > new Date(deadline) && status !== 'Completed' && status !== 'Hold' && status !== 'Cancel';
+    const isOverdue = new Date() > new Date(deadline) && status !== 'Completed';
     if (isOverdue) return 'bg-red-100 text-red-800 border-red-200';
     switch (status) {
       case 'Completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'In Progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Hold': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'Cancel': return 'bg-gray-100 text-gray-500 border-gray-200 line-through';
       default: return 'bg-blue-50 text-blue-800 border-blue-100';
     }
   };
@@ -208,145 +185,18 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       return filterStatus;
   }
 
-  // --- MODAL COMPONENT (Defined inside for access to props) ---
-  const JobDetailModal = ({ job, onClose }: { job: Job, onClose: () => void }) => {
-    if (!job) return null;
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className={`w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden ${cardClass} flex flex-col max-h-[90vh]`}>
-                <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                    <div>
-                        <h3 className={`text-xl font-bold ${textTitle}`}>Detail Pekerjaan</h3>
-                        <p className={`text-xs ${textSub} mt-1`}>ID: {job.id}</p>
-                    </div>
-                    <button 
-                        onClick={onClose}
-                        className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
-
-                <div className="p-6 overflow-y-auto space-y-6">
-                    {/* Header Info */}
-                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
-                        <div>
-                             <span className={`px-2 py-1 rounded text-xs font-semibold ${isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
-                                {job.category} &gt; {job.subCategory}
-                             </span>
-                        </div>
-                        <div className={`px-3 py-1 rounded-full text-sm font-bold border ${getStatusColor(job.status, job.deadline)}`}>
-                            {job.status}
-                        </div>
-                    </div>
-
-                    {/* Main Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
-                                <Briefcase className="w-4 h-4" /> Jenis Pekerjaan
-                            </label>
-                            <p className={`text-lg font-semibold ${textTitle}`}>{job.jobType}</p>
-                        </div>
-
-                        <div>
-                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
-                                <MapPin className="w-4 h-4" /> Cabang / Dept
-                            </label>
-                            <p className={`text-lg font-semibold ${textTitle}`}>{job.branchDept}</p>
-                        </div>
-
-                        <div>
-                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
-                                <CalendarDays className="w-4 h-4" /> Tanggal Input
-                            </label>
-                            <p className={`text-base ${textTitle}`}>{new Date(job.dateInput).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                        </div>
-
-                        <div>
-                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
-                                <Clock className="w-4 h-4" /> Dateline (Batas Waktu)
-                            </label>
-                            <p className={`text-base font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Hold' && job.status !== 'Cancel' ? 'text-red-500' : textTitle}`}>
-                                {new Date(job.deadline).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                            </p>
-                        </div>
-
-                        {job.activationDate && (
-                            <div>
-                                <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
-                                    <Calendar className="w-4 h-4" /> Tanggal Aktifasi
-                                </label>
-                                <p className={`text-base ${textTitle}`}>{new Date(job.activationDate).toLocaleDateString('id-ID')}</p>
-                            </div>
-                        )}
-
-                        <div>
-                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
-                                <User className="w-4 h-4" /> Dibuat Oleh
-                            </label>
-                            <p className={`text-base ${textTitle}`}>{job.createdBy || 'System / Admin'}</p>
-                        </div>
-                    </div>
-
-                    {/* Description Area */}
-                    <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-                        <label className={`flex items-center gap-2 text-sm font-medium mb-2 ${textSub}`}>
-                            <AlignLeft className="w-4 h-4" /> Keterangan / Catatan
-                        </label>
-                        <p className={`text-base whitespace-pre-wrap ${textTitle}`}>{job.keterangan || 'Tidak ada keterangan tambahan.'}</p>
-                    </div>
-
-                    {/* Update Actions in Modal */}
-                    <div className={`pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                        <h4 className={`text-sm font-bold mb-3 ${textTitle}`}>Update Cepat</h4>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <div className="flex-1">
-                                <label className={`block text-xs mb-1 ${textSub}`}>Ubah Status</label>
-                                <select 
-                                    value={job.status}
-                                    onChange={(e) => onUpdateJob(job.id, { status: e.target.value as Status })}
-                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 ${inputClass}`}
-                                >
-                                    <option value="Pending">Pending</option>
-                                    <option value="In Progress">In Progress</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="Hold">Hold</option>
-                                    <option value="Cancel">Cancel</option>
-                                </select>
-                            </div>
-                            <div className="flex-1">
-                                <label className={`block text-xs mb-1 ${textSub}`}>Ubah Dateline</label>
-                                <input 
-                                    type="date"
-                                    value={job.deadline}
-                                    onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
-                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 ${inputClass}`}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-  };
-
   if (filterStatus) {
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <button 
-                        onClick={() => {
-                            setFilterStatus(null);
-                            setSelectedJob(null);
-                        }}
-                        className={`flex items-center hover:text-[#EE2E24] mb-2 transition-colors ${textSub}`}
+                        onClick={() => setFilterStatus(null)}
+                        className="flex items-center text-gray-500 hover:text-[#EE2E24] mb-2 transition-colors"
                     >
                         <ArrowLeft className="w-4 h-4 mr-1" /> Kembali ke Dashboard
                     </button>
-                    <h2 className={`text-2xl font-bold ${textTitle}`}>
+                    <h2 className="text-2xl font-bold text-gray-800">
                         Detail Pekerjaan: <span className="text-[#002F6C]">{getFilterTitle()}</span>
                     </h2>
                 </div>
@@ -356,17 +206,17 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                     <input 
                         type="text" 
                         placeholder="Cari..." 
-                        className={`w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${inputClass}`}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
 
-            <div className={`rounded-xl shadow-sm border overflow-hidden ${cardClass}`}>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className={`${tableHeaderClass} border-b`}>
+                        <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
                             <tr>
                                 <th className="p-4">Kategori / Sub</th>
                                 <th className="p-4">Tanggal Input</th>
@@ -378,44 +228,35 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                 <th className="p-4">Oleh</th>
                             </tr>
                         </thead>
-                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
+                        <tbody className="divide-y divide-gray-100">
                             {filteredList.length === 0 ? (
                                 <tr><td colSpan={8} className="p-8 text-center text-gray-400">Tidak ada data ditemukan.</td></tr>
                             ) : (
                                 filteredList.map(job => (
-                                    <tr 
-                                        key={job.id} 
-                                        className={tableRowClass}
-                                        onClick={() => setSelectedJob(job)}
-                                        title="Klik untuk melihat detail lengkap"
-                                    >
+                                    <tr key={job.id} className="hover:bg-gray-50">
                                         <td className="p-4">
-                                            <div className={`font-medium ${tableText}`}>{job.category}</div>
+                                            <div className="font-medium text-gray-800">{job.category}</div>
                                             <div className="text-xs text-gray-500">{job.subCategory}</div>
                                         </td>
-                                        <td className={`p-4 ${tableText}`}>{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
-                                        <td className={`p-4 ${tableText}`}>{job.branchDept}</td>
-                                        <td className={`p-4 ${tableText}`}>{job.jobType}</td>
-                                        <td className="p-4 italic text-gray-500 max-w-[200px] truncate">{job.keterangan || '-'}</td>
+                                        <td className="p-4">{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
+                                        <td className="p-4">{job.branchDept}</td>
+                                        <td className="p-4">{job.jobType}</td>
+                                        <td className="p-4 italic text-gray-500">{job.keterangan || '-'}</td>
                                         <td className="p-4">
                                             <select 
                                                 value={job.status}
-                                                onClick={(e) => e.stopPropagation()}
                                                 onChange={(e) => onUpdateJob(job.id, { status: e.target.value as Status })}
                                                 className={`px-3 py-1 rounded-full text-xs font-semibold border appearance-none cursor-pointer focus:outline-none ${getStatusColor(job.status, job.deadline)}`}
                                             >
                                                 <option value="Pending">Pending</option>
                                                 <option value="In Progress">In Progress</option>
                                                 <option value="Completed">Completed</option>
-                                                <option value="Hold">Hold</option>
-                                                <option value="Cancel">Cancel</option>
                                             </select>
                                         </td>
                                         <td className="p-4">
                                             <input 
                                                 type="date"
-                                                onClick={(e) => e.stopPropagation()}
-                                                className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Cancel' && job.status !== 'Hold' ? 'text-red-600' : (isDarkMode ? 'text-gray-300' : 'text-gray-600')}`}
+                                                className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}
                                                 value={job.deadline}
                                                 onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
                                             />
@@ -430,9 +271,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                     </table>
                 </div>
             </div>
-
-            {/* Modal for Job Details */}
-            {selectedJob && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} />}
         </div>
     );
   }
@@ -442,8 +280,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 mb-6">
         <div>
             <div className="flex items-center gap-2">
-                <h1 className={`text-2xl font-bold ${textTitle}`}>Dashboard Monitoring Pekerjaan</h1>
-                <div className={`flex items-center px-2 py-1 rounded text-xs border ${connectionError ? 'bg-red-50 text-red-600 border-red-200' : (isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200')}`}>
+                <h1 className="text-2xl font-bold text-gray-800">Dashboard Monitoring Pekerjaan</h1>
+                <div className={`flex items-center px-2 py-1 rounded text-xs border ${connectionError ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                     {connectionError ? (
                         <>
                             <WifiOff className="w-3 h-3 mr-1" />
@@ -467,7 +305,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                     )}
                 </div>
             </div>
-            <p className={`${textSub} mt-1`}>
+            <p className="text-gray-500 mt-1">
                 Summary performa dan status pekerjaan terkini. 
                 {lastUpdated && <span className="text-xs ml-2">Updated: {lastUpdated.toLocaleTimeString()}</span>}
             </p>
@@ -482,7 +320,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
             />
             <button 
                 onClick={handleDownloadTemplate}
-                className={`flex items-center px-4 py-2 border rounded-lg transition-colors text-sm font-medium ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
             >
                 <FileDown className="w-4 h-4 mr-2" /> Template Global
             </button>
@@ -510,89 +348,63 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div 
             onClick={() => setFilterStatus('Total')}
-            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
         >
-          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-blue-900 text-blue-300 group-hover:bg-blue-800' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-100'}`}>
+          <div className="p-3 rounded-full bg-blue-50 text-blue-600 mr-4 group-hover:bg-blue-100 transition-colors">
             <CalendarDays className="w-6 h-6" />
           </div>
           <div>
-            <p className={`${textSub} text-sm`}>Total Pekerjaan</p>
-            <p className={`text-2xl font-bold ${textTitle}`}>{stats.total}</p>
+            <p className="text-gray-500 text-sm">Total Pekerjaan</p>
+            <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
           </div>
         </div>
 
         <div 
             onClick={() => setFilterStatus('Completed')}
-            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
         >
-          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-green-900 text-green-300 group-hover:bg-green-800' : 'bg-green-50 text-green-600 group-hover:bg-green-100'}`}>
+          <div className="p-3 rounded-full bg-green-50 text-green-600 mr-4 group-hover:bg-green-100 transition-colors">
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <p className={`${textSub} text-sm`}>Selesai</p>
-            <p className={`text-2xl font-bold ${textTitle}`}>{stats.completed}</p>
+            <p className="text-gray-500 text-sm">Selesai</p>
+            <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
           </div>
         </div>
 
         <div 
             onClick={() => setFilterStatus('In Progress')}
-            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
         >
-          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-yellow-900 text-yellow-300 group-hover:bg-yellow-800' : 'bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100'}`}>
+          <div className="p-3 rounded-full bg-yellow-50 text-yellow-600 mr-4 group-hover:bg-yellow-100 transition-colors">
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <p className={`${textSub} text-sm`}>Dalam Proses</p>
-            <p className={`text-2xl font-bold ${textTitle}`}>{stats.pending + stats.inProgress}</p>
-          </div>
-        </div>
-
-        <div 
-            onClick={() => setFilterStatus('Hold')}
-            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
-        >
-          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-orange-900 text-orange-300 group-hover:bg-orange-800' : 'bg-orange-50 text-orange-600 group-hover:bg-orange-100'}`}>
-            <PauseCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className={`${textSub} text-sm`}>Hold (Ditahan)</p>
-            <p className="text-2xl font-bold text-orange-500">{stats.hold}</p>
-          </div>
-        </div>
-
-        <div 
-            onClick={() => setFilterStatus('Cancel')}
-            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
-        >
-          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-gray-700 text-gray-300 group-hover:bg-gray-600' : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'}`}>
-            <XCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className={`${textSub} text-sm`}>Cancel (Batal)</p>
-            <p className="text-2xl font-bold text-gray-500">{stats.cancel}</p>
+            <p className="text-gray-500 text-sm">Dalam Proses</p>
+            <p className="text-2xl font-bold text-gray-800">{stats.pending + stats.inProgress}</p>
           </div>
         </div>
 
         <div 
             onClick={() => setFilterStatus('Overdue')}
-            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
         >
-          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-red-900 text-red-300 group-hover:bg-red-800' : 'bg-red-50 text-red-600 group-hover:bg-red-100'}`}>
+          <div className="p-3 rounded-full bg-red-50 text-red-600 mr-4 group-hover:bg-red-100 transition-colors">
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className={`${textSub} text-sm`}>Melewati Dateline</p>
+            <p className="text-gray-500 text-sm">Melewati Dateline</p>
             <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className={`${cardClass} p-6 rounded-xl`}>
-          <h3 className={`text-lg font-bold mb-4 ${textTitle}`}>Status Distribusi</h3>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Status Distribusi</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -605,27 +417,20 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
-                  stroke={isDarkMode ? '#1f2937' : '#fff'}
                 >
                   {pieData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
-                    contentStyle={{ 
-                        backgroundColor: isDarkMode ? '#1f2937' : '#fff', 
-                        borderColor: isDarkMode ? '#374151' : '#ccc',
-                        color: isDarkMode ? '#fff' : '#000'
-                    }} 
-                />
+                <Tooltip />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className={`${cardClass} p-6 rounded-xl`}>
-          <h3 className={`text-lg font-bold mb-4 ${textTitle}`}>Pekerjaan per Kategori (Klik untuk detail)</h3>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Pekerjaan per Kategori (Klik untuk detail)</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
@@ -636,23 +441,17 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                   }
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#374151' : '#ccc'} />
-                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: isDarkMode ? '#9ca3af' : '#666' }} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} tick={{ fill: isDarkMode ? '#9ca3af' : '#666' }} />
-                <Tooltip 
-                     cursor={{fill: isDarkMode ? '#374151' : '#f3f4f6'}}
-                     contentStyle={{ 
-                        backgroundColor: isDarkMode ? '#1f2937' : '#fff', 
-                        borderColor: isDarkMode ? '#374151' : '#ccc',
-                        color: isDarkMode ? '#fff' : '#000'
-                    }} 
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip cursor={{fill: 'transparent'}} />
                 <Bar 
                     dataKey="count" 
                     fill="#002F6C" 
                     radius={[4, 4, 0, 0]} 
                     cursor="pointer"
-                    onClick={(data) => {
+                    onClick={(data, index) => {
+                        // Fallback click handler directly on the Bar
                         if (data && data.name) {
                              setFilterStatus(data.name as string);
                         }
