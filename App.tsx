@@ -26,6 +26,7 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (isSaving) return;
@@ -216,6 +217,10 @@ function App() {
     saveToCloud(newJobs, users, [newLog, ...validationLogs]);
   };
 
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   const visibleJobs = useMemo(() => {
     if (!currentUser) return [];
     const userRole = users.find(u => u.email === currentUser.email)?.role || currentUser.role;
@@ -257,6 +262,7 @@ function App() {
                 isSaving={isSaving}
                 lastUpdated={lastUpdated}
                 connectionError={connectionError}
+                isDarkMode={isDarkMode}
             />
           );
       }
@@ -272,6 +278,7 @@ function App() {
                 onDeleteJob={handleDeleteJob}
                 onBulkAddJobs={handleBulkAdd}
                 currentUser={currentUser}
+                isDarkMode={isDarkMode}
             />
           );
       }
@@ -287,6 +294,8 @@ function App() {
       user={currentUser}
       onLogout={handleLogout}
       onChangePassword={handleChangePassword}
+      isDarkMode={isDarkMode}
+      onToggleTheme={toggleTheme}
     >
       {connectionError && (
         <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative animate-pulse">
