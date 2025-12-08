@@ -4,7 +4,7 @@ import { MenuStructure, User } from './types';
 export const MENU_STRUCTURE: MenuStructure = {
   "Penyesuaian": {
     name: "Penyesuaian",
-    submenus: ["Harga Jual", "Routing", "Costing"]
+    submenus: ["Publish Rate", "Routing", "Costing"]
   },
   "Request Data": {
     name: "Request Data",
