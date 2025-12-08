@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid 
 } from 'recharts';
-import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle, X, MapPin, Briefcase, User, AlignLeft, Calendar } from 'lucide-react';
 
 interface DashboardSummaryProps {
   jobs: Job[];
@@ -34,6 +34,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
 }) => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Theme Helpers
@@ -42,7 +43,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
   const textSub = isDarkMode ? "text-gray-400" : "text-gray-500";
   const inputClass = isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-200 text-gray-800";
   const tableHeaderClass = isDarkMode ? "bg-gray-900 text-gray-300 border-gray-700" : "bg-gray-50 text-gray-600 border-gray-200";
-  const tableRowClass = isDarkMode ? "hover:bg-gray-700 border-gray-700" : "hover:bg-gray-50 border-gray-100";
+  const tableRowClass = isDarkMode ? "hover:bg-gray-700 border-gray-700 cursor-pointer" : "hover:bg-gray-50 border-gray-100 cursor-pointer";
   const tableText = isDarkMode ? "text-gray-200" : "text-gray-800";
 
   const stats = useMemo(() => {
@@ -207,13 +208,140 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       return filterStatus;
   }
 
+  // --- MODAL COMPONENT (Defined inside for access to props) ---
+  const JobDetailModal = ({ job, onClose }: { job: Job, onClose: () => void }) => {
+    if (!job) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className={`w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden ${cardClass} flex flex-col max-h-[90vh]`}>
+                <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                    <div>
+                        <h3 className={`text-xl font-bold ${textTitle}`}>Detail Pekerjaan</h3>
+                        <p className={`text-xs ${textSub} mt-1`}>ID: {job.id}</p>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto space-y-6">
+                    {/* Header Info */}
+                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                        <div>
+                             <span className={`px-2 py-1 rounded text-xs font-semibold ${isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                                {job.category} &gt; {job.subCategory}
+                             </span>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-sm font-bold border ${getStatusColor(job.status, job.deadline)}`}>
+                            {job.status}
+                        </div>
+                    </div>
+
+                    {/* Main Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
+                                <Briefcase className="w-4 h-4" /> Jenis Pekerjaan
+                            </label>
+                            <p className={`text-lg font-semibold ${textTitle}`}>{job.jobType}</p>
+                        </div>
+
+                        <div>
+                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
+                                <MapPin className="w-4 h-4" /> Cabang / Dept
+                            </label>
+                            <p className={`text-lg font-semibold ${textTitle}`}>{job.branchDept}</p>
+                        </div>
+
+                        <div>
+                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
+                                <CalendarDays className="w-4 h-4" /> Tanggal Input
+                            </label>
+                            <p className={`text-base ${textTitle}`}>{new Date(job.dateInput).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        </div>
+
+                        <div>
+                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
+                                <Clock className="w-4 h-4" /> Dateline (Batas Waktu)
+                            </label>
+                            <p className={`text-base font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Hold' && job.status !== 'Cancel' ? 'text-red-500' : textTitle}`}>
+                                {new Date(job.deadline).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </p>
+                        </div>
+
+                        {job.activationDate && (
+                            <div>
+                                <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
+                                    <Calendar className="w-4 h-4" /> Tanggal Aktifasi
+                                </label>
+                                <p className={`text-base ${textTitle}`}>{new Date(job.activationDate).toLocaleDateString('id-ID')}</p>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className={`flex items-center gap-2 text-sm font-medium mb-1 ${textSub}`}>
+                                <User className="w-4 h-4" /> Dibuat Oleh
+                            </label>
+                            <p className={`text-base ${textTitle}`}>{job.createdBy || 'System / Admin'}</p>
+                        </div>
+                    </div>
+
+                    {/* Description Area */}
+                    <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
+                        <label className={`flex items-center gap-2 text-sm font-medium mb-2 ${textSub}`}>
+                            <AlignLeft className="w-4 h-4" /> Keterangan / Catatan
+                        </label>
+                        <p className={`text-base whitespace-pre-wrap ${textTitle}`}>{job.keterangan || 'Tidak ada keterangan tambahan.'}</p>
+                    </div>
+
+                    {/* Update Actions in Modal */}
+                    <div className={`pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                        <h4 className={`text-sm font-bold mb-3 ${textTitle}`}>Update Cepat</h4>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1">
+                                <label className={`block text-xs mb-1 ${textSub}`}>Ubah Status</label>
+                                <select 
+                                    value={job.status}
+                                    onChange={(e) => onUpdateJob(job.id, { status: e.target.value as Status })}
+                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 ${inputClass}`}
+                                >
+                                    <option value="Pending">Pending</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Hold">Hold</option>
+                                    <option value="Cancel">Cancel</option>
+                                </select>
+                            </div>
+                            <div className="flex-1">
+                                <label className={`block text-xs mb-1 ${textSub}`}>Ubah Dateline</label>
+                                <input 
+                                    type="date"
+                                    value={job.deadline}
+                                    onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
+                                    className={`w-full px-3 py-2 rounded-lg border focus:ring-2 ${inputClass}`}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
+
   if (filterStatus) {
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <button 
-                        onClick={() => setFilterStatus(null)}
+                        onClick={() => {
+                            setFilterStatus(null);
+                            setSelectedJob(null);
+                        }}
                         className={`flex items-center hover:text-[#EE2E24] mb-2 transition-colors ${textSub}`}
                     >
                         <ArrowLeft className="w-4 h-4 mr-1" /> Kembali ke Dashboard
@@ -255,7 +383,12 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                 <tr><td colSpan={8} className="p-8 text-center text-gray-400">Tidak ada data ditemukan.</td></tr>
                             ) : (
                                 filteredList.map(job => (
-                                    <tr key={job.id} className={tableRowClass}>
+                                    <tr 
+                                        key={job.id} 
+                                        className={tableRowClass}
+                                        onClick={() => setSelectedJob(job)}
+                                        title="Klik untuk melihat detail lengkap"
+                                    >
                                         <td className="p-4">
                                             <div className={`font-medium ${tableText}`}>{job.category}</div>
                                             <div className="text-xs text-gray-500">{job.subCategory}</div>
@@ -263,10 +396,11 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                         <td className={`p-4 ${tableText}`}>{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
                                         <td className={`p-4 ${tableText}`}>{job.branchDept}</td>
                                         <td className={`p-4 ${tableText}`}>{job.jobType}</td>
-                                        <td className="p-4 italic text-gray-500">{job.keterangan || '-'}</td>
+                                        <td className="p-4 italic text-gray-500 max-w-[200px] truncate">{job.keterangan || '-'}</td>
                                         <td className="p-4">
                                             <select 
                                                 value={job.status}
+                                                onClick={(e) => e.stopPropagation()}
                                                 onChange={(e) => onUpdateJob(job.id, { status: e.target.value as Status })}
                                                 className={`px-3 py-1 rounded-full text-xs font-semibold border appearance-none cursor-pointer focus:outline-none ${getStatusColor(job.status, job.deadline)}`}
                                             >
@@ -280,6 +414,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                         <td className="p-4">
                                             <input 
                                                 type="date"
+                                                onClick={(e) => e.stopPropagation()}
                                                 className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Cancel' && job.status !== 'Hold' ? 'text-red-600' : (isDarkMode ? 'text-gray-300' : 'text-gray-600')}`}
                                                 value={job.deadline}
                                                 onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
@@ -295,6 +430,9 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                     </table>
                 </div>
             </div>
+
+            {/* Modal for Job Details */}
+            {selectedJob && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} />}
         </div>
     );
   }
