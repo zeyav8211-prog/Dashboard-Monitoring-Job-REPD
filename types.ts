@@ -1,5 +1,5 @@
 
-export type Status = 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
+export type Status = 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Hold' | 'Cancel';
 
 export interface Job {
   id: string;
