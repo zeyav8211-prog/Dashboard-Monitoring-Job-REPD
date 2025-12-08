@@ -16,6 +16,7 @@ interface DashboardSummaryProps {
   isSaving?: boolean;
   connectionError?: boolean;
   lastUpdated?: Date | null;
+  isDarkMode?: boolean;
 }
 
 const COLORS = ['#0088FE', '#FFBB28', '#00C49F', '#EE2E24'];
@@ -27,11 +28,21 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     isLoading = false,
     isSaving = false,
     connectionError = false,
-    lastUpdated = null
+    lastUpdated = null,
+    isDarkMode = false
 }) => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Theme Helpers
+  const cardClass = isDarkMode ? "bg-gray-800 border-gray-700 shadow-lg" : "bg-white border-gray-100 shadow-sm";
+  const textTitle = isDarkMode ? "text-white" : "text-gray-800";
+  const textSub = isDarkMode ? "text-gray-400" : "text-gray-500";
+  const inputClass = isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-200 text-gray-800";
+  const tableHeaderClass = isDarkMode ? "bg-gray-900 text-gray-300 border-gray-700" : "bg-gray-50 text-gray-600 border-gray-200";
+  const tableRowClass = isDarkMode ? "hover:bg-gray-700 border-gray-700" : "hover:bg-gray-50 border-gray-100";
+  const tableText = isDarkMode ? "text-gray-200" : "text-gray-800";
 
   const stats = useMemo(() => {
     const total = jobs.length;
@@ -192,11 +203,11 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 <div>
                     <button 
                         onClick={() => setFilterStatus(null)}
-                        className="flex items-center text-gray-500 hover:text-[#EE2E24] mb-2 transition-colors"
+                        className={`flex items-center hover:text-[#EE2E24] mb-2 transition-colors ${textSub}`}
                     >
                         <ArrowLeft className="w-4 h-4 mr-1" /> Kembali ke Dashboard
                     </button>
-                    <h2 className="text-2xl font-bold text-gray-800">
+                    <h2 className={`text-2xl font-bold ${textTitle}`}>
                         Detail Pekerjaan: <span className="text-[#002F6C]">{getFilterTitle()}</span>
                     </h2>
                 </div>
@@ -206,17 +217,17 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                     <input 
                         type="text" 
                         placeholder="Cari..." 
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        className={`w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${inputClass}`}
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className={`rounded-xl shadow-sm border overflow-hidden ${cardClass}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
+                        <thead className={`${tableHeaderClass} border-b`}>
                             <tr>
                                 <th className="p-4">Kategori / Sub</th>
                                 <th className="p-4">Tanggal Input</th>
@@ -228,19 +239,19 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                 <th className="p-4">Oleh</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
                             {filteredList.length === 0 ? (
                                 <tr><td colSpan={8} className="p-8 text-center text-gray-400">Tidak ada data ditemukan.</td></tr>
                             ) : (
                                 filteredList.map(job => (
-                                    <tr key={job.id} className="hover:bg-gray-50">
+                                    <tr key={job.id} className={tableRowClass}>
                                         <td className="p-4">
-                                            <div className="font-medium text-gray-800">{job.category}</div>
+                                            <div className={`font-medium ${tableText}`}>{job.category}</div>
                                             <div className="text-xs text-gray-500">{job.subCategory}</div>
                                         </td>
-                                        <td className="p-4">{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
-                                        <td className="p-4">{job.branchDept}</td>
-                                        <td className="p-4">{job.jobType}</td>
+                                        <td className={`p-4 ${tableText}`}>{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
+                                        <td className={`p-4 ${tableText}`}>{job.branchDept}</td>
+                                        <td className={`p-4 ${tableText}`}>{job.jobType}</td>
                                         <td className="p-4 italic text-gray-500">{job.keterangan || '-'}</td>
                                         <td className="p-4">
                                             <select 
@@ -256,7 +267,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                         <td className="p-4">
                                             <input 
                                                 type="date"
-                                                className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}
+                                                className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : (isDarkMode ? 'text-gray-300' : 'text-gray-600')}`}
                                                 value={job.deadline}
                                                 onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
                                             />
@@ -280,8 +291,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 mb-6">
         <div>
             <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-800">Dashboard Monitoring Pekerjaan</h1>
-                <div className={`flex items-center px-2 py-1 rounded text-xs border ${connectionError ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                <h1 className={`text-2xl font-bold ${textTitle}`}>Dashboard Monitoring Pekerjaan</h1>
+                <div className={`flex items-center px-2 py-1 rounded text-xs border ${connectionError ? 'bg-red-50 text-red-600 border-red-200' : (isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200')}`}>
                     {connectionError ? (
                         <>
                             <WifiOff className="w-3 h-3 mr-1" />
@@ -305,7 +316,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                     )}
                 </div>
             </div>
-            <p className="text-gray-500 mt-1">
+            <p className={`${textSub} mt-1`}>
                 Summary performa dan status pekerjaan terkini. 
                 {lastUpdated && <span className="text-xs ml-2">Updated: {lastUpdated.toLocaleTimeString()}</span>}
             </p>
@@ -320,7 +331,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
             />
             <button 
                 onClick={handleDownloadTemplate}
-                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                className={`flex items-center px-4 py-2 border rounded-lg transition-colors text-sm font-medium ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
             >
                 <FileDown className="w-4 h-4 mr-2" /> Template Global
             </button>
@@ -351,60 +362,60 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div 
             onClick={() => setFilterStatus('Total')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
         >
-          <div className="p-3 rounded-full bg-blue-50 text-blue-600 mr-4 group-hover:bg-blue-100 transition-colors">
+          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-blue-900 text-blue-300 group-hover:bg-blue-800' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-100'}`}>
             <CalendarDays className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Total Pekerjaan</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+            <p className={`${textSub} text-sm`}>Total Pekerjaan</p>
+            <p className={`text-2xl font-bold ${textTitle}`}>{stats.total}</p>
           </div>
         </div>
 
         <div 
             onClick={() => setFilterStatus('Completed')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
         >
-          <div className="p-3 rounded-full bg-green-50 text-green-600 mr-4 group-hover:bg-green-100 transition-colors">
+          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-green-900 text-green-300 group-hover:bg-green-800' : 'bg-green-50 text-green-600 group-hover:bg-green-100'}`}>
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Selesai</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
+            <p className={`${textSub} text-sm`}>Selesai</p>
+            <p className={`text-2xl font-bold ${textTitle}`}>{stats.completed}</p>
           </div>
         </div>
 
         <div 
             onClick={() => setFilterStatus('In Progress')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
         >
-          <div className="p-3 rounded-full bg-yellow-50 text-yellow-600 mr-4 group-hover:bg-yellow-100 transition-colors">
+          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-yellow-900 text-yellow-300 group-hover:bg-yellow-800' : 'bg-yellow-50 text-yellow-600 group-hover:bg-yellow-100'}`}>
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Dalam Proses</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.pending + stats.inProgress}</p>
+            <p className={`${textSub} text-sm`}>Dalam Proses</p>
+            <p className={`text-2xl font-bold ${textTitle}`}>{stats.pending + stats.inProgress}</p>
           </div>
         </div>
 
         <div 
             onClick={() => setFilterStatus('Overdue')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className={`${cardClass} p-6 rounded-xl flex items-center cursor-pointer hover:shadow-md transition-shadow group`}
         >
-          <div className="p-3 rounded-full bg-red-50 text-red-600 mr-4 group-hover:bg-red-100 transition-colors">
+          <div className={`p-3 rounded-full mr-4 transition-colors ${isDarkMode ? 'bg-red-900 text-red-300 group-hover:bg-red-800' : 'bg-red-50 text-red-600 group-hover:bg-red-100'}`}>
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Melewati Dateline</p>
+            <p className={`${textSub} text-sm`}>Melewati Dateline</p>
             <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Status Distribusi</h3>
+        <div className={`${cardClass} p-6 rounded-xl`}>
+          <h3 className={`text-lg font-bold mb-4 ${textTitle}`}>Status Distribusi</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -417,20 +428,27 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
+                  stroke={isDarkMode ? '#1f2937' : '#fff'}
                 >
                   {pieData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                    contentStyle={{ 
+                        backgroundColor: isDarkMode ? '#1f2937' : '#fff', 
+                        borderColor: isDarkMode ? '#374151' : '#ccc',
+                        color: isDarkMode ? '#fff' : '#000'
+                    }} 
+                />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Pekerjaan per Kategori (Klik untuk detail)</h3>
+        <div className={`${cardClass} p-6 rounded-xl`}>
+          <h3 className={`text-lg font-bold mb-4 ${textTitle}`}>Pekerjaan per Kategori (Klik untuk detail)</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
@@ -441,17 +459,23 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                   }
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip cursor={{fill: 'transparent'}} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#374151' : '#ccc'} />
+                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: isDarkMode ? '#9ca3af' : '#666' }} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} tick={{ fill: isDarkMode ? '#9ca3af' : '#666' }} />
+                <Tooltip 
+                     cursor={{fill: isDarkMode ? '#374151' : '#f3f4f6'}}
+                     contentStyle={{ 
+                        backgroundColor: isDarkMode ? '#1f2937' : '#fff', 
+                        borderColor: isDarkMode ? '#374151' : '#ccc',
+                        color: isDarkMode ? '#fff' : '#000'
+                    }} 
+                />
                 <Bar 
                     dataKey="count" 
                     fill="#002F6C" 
                     radius={[4, 4, 0, 0]} 
                     cursor="pointer"
-                    onClick={(data, index) => {
-                        // Fallback click handler directly on the Bar
+                    onClick={(data) => {
                         if (data && data.name) {
                              setFilterStatus(data.name as string);
                         }
