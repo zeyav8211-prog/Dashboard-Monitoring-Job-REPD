@@ -442,7 +442,13 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                <XAxis 
+                    dataKey="name" 
+                    fontSize={10} 
+                    interval={0} 
+                    tickLine={false} 
+                    axisLine={false} 
+                />
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip cursor={{fill: 'transparent'}} />
                 <Bar 
