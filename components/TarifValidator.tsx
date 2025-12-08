@@ -540,7 +540,7 @@ export const TarifValidator: React.FC<TarifValidatorProps> = ({ category }) => {
 
   const getDisplayedRows = useMemo(() => {
       if (!result) return [];
-      let rows: FullValidationRow[] = [];
+      let rows = [];
       
       if (result.totalRows > 0 && result.fullReport.length === 0) {
           return [];
