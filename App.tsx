@@ -302,6 +302,7 @@ function App() {
                 isSaving={isSaving}
                 lastUpdated={lastUpdated}
                 connectionError={connectionError}
+                currentUser={currentUser}
             />
           );
       }
