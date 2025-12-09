@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardSummary } from './components/DashboardSummary';
@@ -162,7 +163,7 @@ function App() {
                         to_email: targetUser.email,
                         reset_token: resetToken,
                         // Pesan yang dikirim ke email
-                        message: `Kami menerima permintaan reset password. Password sementara Anda adalah: ${resetToken}. Silakan login dan segera ganti password Anda melalui menu profile.`
+                        message: `Permintaan reset password diterima. Password baru Anda adalah: ${resetToken}. Silakan login dan segera ganti password ini melalui menu profile.`
                     },
                     EMAILJS_PUBLIC_KEY
                 );
