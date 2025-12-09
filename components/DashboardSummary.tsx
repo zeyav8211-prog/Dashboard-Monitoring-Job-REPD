@@ -83,7 +83,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
   }, [jobs]);
 
   const handleDownloadTemplate = () => {
-    const headers = "Kategori,Sub Kategori,Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan";
+    const headers = "Kategori,Sub Kategori,Tanggal Input (YYYY-MM-DD),Cabang/Dept,Nama Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan";
     const exampleRow = "Penyesuaian,Publish Rate,2024-03-20,Jakarta,Update Tarif,Pending,2024-03-25,Catatan Tambahan";
     const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + exampleRow;
     const encodedUri = encodeURI(csvContent);
@@ -190,6 +190,15 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     }
   };
 
+  const formatKeterangan = (text: string | undefined) => {
+    if (!text) return '-';
+    // Menampilkan 40 karakter terakhir
+    if (text.length > 40) {
+        return '...' + text.slice(-40);
+    }
+    return text;
+  };
+
   const getFilterTitle = () => {
       if (filterStatus === 'In Progress') return 'Dalam Proses & Pending';
       if (Object.keys(MENU_STRUCTURE).includes(filterStatus || '')) return `Kategori: ${filterStatus}`;
@@ -232,7 +241,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                 <th className="p-4">Kategori / Sub</th>
                                 <th className="p-4">Tanggal Input</th>
                                 <th className="p-4">Cabang</th>
-                                <th className="p-4">Pekerjaan</th>
+                                <th className="p-4">Nama Pekerjaan</th>
                                 <th className="p-4">Keterangan</th>
                                 <th className="p-4">Status</th>
                                 <th className="p-4">Deadline</th>
@@ -252,7 +261,9 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                         <td className="p-4">{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
                                         <td className="p-4">{job.branchDept}</td>
                                         <td className="p-4">{job.jobType}</td>
-                                        <td className="p-4 italic text-gray-500">{job.keterangan || '-'}</td>
+                                        <td className="p-4 italic text-gray-500" title={job.keterangan}>
+                                            {formatKeterangan(job.keterangan)}
+                                        </td>
                                         <td className="p-4">
                                             <select 
                                                 value={job.status}
