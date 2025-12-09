@@ -99,14 +99,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
                     </div>
                     
                     <h3 className="text-lg font-bold text-gray-800 mb-2">Link Reset Terkirim!</h3>
-                    <p className="text-gray-600 text-sm mb-6 leading-relaxed">
-                        Kami telah mengirimkan link untuk mereset password Anda ke email <strong>{email}</strong>. 
-                        Silakan cek kotak masuk atau folder spam Anda.
+                    <p className="text-gray-600 text-sm mb-8 leading-relaxed">
+                        Kami telah mengirimkan instruksi dan link untuk mereset password Anda ke email <strong>{email}</strong>. 
+                        <br/><br/>
+                        Silakan periksa kotak masuk (Inbox) atau folder Spam Anda dalam beberapa saat lagi.
                     </p>
-
-                    <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-xs text-blue-800 mb-6 text-left">
-                        <strong>Info Demo:</strong> Karena ini simulasi, password Anda telah direset sementara menjadi: <span className="font-mono text-sm font-bold bg-white px-1 rounded border border-blue-200 ml-1">000000</span>
-                    </div>
 
                     <button
                         onClick={handleBackToLogin}
