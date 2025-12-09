@@ -14,6 +14,10 @@ export interface Job {
   keterangan?: string;
   notes?: string;
   createdBy?: string;
+  // Checklist Fields for Penyesuaian
+  isCabangConfirmed?: boolean;
+  isDisposition?: boolean;
+  isApproved?: boolean;
 }
 
 export interface MenuItem {
