@@ -132,8 +132,15 @@ function App() {
     const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (targetUser) {
-        const defaultPassword = "000000";
-        const updatedUser = { ...targetUser, password: defaultPassword };
+        // Generate pseudo-random 6 character token for "Real" feel
+        const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        // In a real app, we would send this token via email.
+        // For this app (Client Side), we update the password to this token.
+        // We log it to console so the admin/tester can see it.
+        console.log(`[EMAIL SERVICE MOCK] Sending reset email to ${email}. New Token/Password: ${resetToken}`);
+        
+        const updatedUser = { ...targetUser, password: resetToken };
         const updatedUserList = users.map(u => u.email === targetUser.email ? updatedUser : u);
         
         const newLog: ValidationLog = {
