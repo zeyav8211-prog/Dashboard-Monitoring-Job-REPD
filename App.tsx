@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardSummary } from './components/DashboardSummary';
@@ -6,8 +7,9 @@ import { JobManager } from './components/JobManager';
 import { Login } from './components/Login';
 import { TarifValidator } from './components/TarifValidator';
 import { Job, User, ValidationLog } from './types';
-import { AUTHORIZED_USERS } from './constants';
+import { AUTHORIZED_USERS, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY } from './constants';
 import { api } from './services/api';
+import emailjs from '@emailjs/browser';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -135,11 +137,7 @@ function App() {
         // Generate pseudo-random 6 character token for "Real" feel
         const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
         
-        // In a real app, we would send this token via email.
-        // For this app (Client Side), we update the password to this token.
-        // We log it to console so the admin/tester can see it.
-        console.log(`[EMAIL SERVICE MOCK] Sending reset email to ${email}. New Token/Password: ${resetToken}`);
-        
+        // Update user password immediately in DB
         const updatedUser = { ...targetUser, password: resetToken };
         const updatedUserList = users.map(u => u.email === targetUser.email ? updatedUser : u);
         
@@ -152,7 +150,34 @@ function App() {
         };
         const updatedLogs = [newLog, ...validationLogs];
 
+        // 1. Simpan password baru ke database
         await saveToCloud(jobs, updatedUserList, updatedLogs);
+
+        // 2. Kirim Email menggunakan EmailJS
+        if (EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY) {
+            try {
+                await emailjs.send(
+                    EMAILJS_SERVICE_ID,
+                    EMAILJS_TEMPLATE_ID,
+                    {
+                        to_name: targetUser.name,
+                        to_email: targetUser.email,
+                        reset_token: resetToken,
+                        message: `Password sementara Anda adalah: ${resetToken}. Silakan login dan segera ganti password.`
+                    },
+                    EMAILJS_PUBLIC_KEY
+                );
+                console.log("Email berhasil dikirim ke " + email);
+            } catch (error) {
+                console.error("Gagal mengirim email:", error);
+                alert("Password berhasil direset menjadi: " + resetToken + ", namun GAGAL mengirim email. Mohon cek konfigurasi EmailJS.");
+                return true; // Tetap return true karena password sudah berubah di DB
+            }
+        } else {
+            console.warn("EmailJS credentials belum dikonfigurasi di constants.ts");
+            alert(`[MODE DEVELOPER] EmailJS belum disetting. Password reset menjadi: ${resetToken}`);
+        }
+        
         return true;
     }
     return false;
