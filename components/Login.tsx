@@ -82,7 +82,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
           {!successMsg && (
               <p className="text-gray-500 text-sm text-center mt-2">
                 {isResetMode 
-                    ? 'Masukkan email untuk menerima link reset password.' 
+                    ? 'Masukkan email untuk menerima password baru.' 
                     : 'Silakan login untuk melanjutkan'}
               </p>
           )}
@@ -98,11 +98,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
                         </div>
                     </div>
                     
-                    <h3 className="text-lg font-bold text-gray-800 mb-2">Link Reset Terkirim!</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">Password Baru Terkirim!</h3>
                     <p className="text-gray-600 text-sm mb-8 leading-relaxed">
-                        Kami telah mengirimkan instruksi dan link untuk mereset password Anda ke email <strong>{email}</strong>. 
+                        Kami telah mengirimkan <strong>Password Baru</strong> ke email <strong>{email}</strong>. 
                         <br/><br/>
-                        Silakan periksa kotak masuk (Inbox) atau folder Spam Anda dalam beberapa saat lagi.
+                        Silakan periksa kotak masuk (Inbox) atau folder Spam Anda, lalu login menggunakan password tersebut.
                     </p>
 
                     <button
@@ -150,7 +150,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
                         ) : (
                             <>
                                 <Send className="w-5 h-5 mr-2" />
-                                Kirim Link Reset Password
+                                Kirim Password Baru
                             </>
                         )}
                     </button>
