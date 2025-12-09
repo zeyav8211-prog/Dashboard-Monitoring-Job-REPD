@@ -1,5 +1,4 @@
 
-
 import { MenuStructure, User } from './types';
 
 export const MENU_STRUCTURE: MenuStructure = {
@@ -38,11 +37,11 @@ export const JSONBIN_BIN_ID = "692843aa43b1c97be9c875fd";
 export const JSONBIN_API_KEY = "$2a$10$LGur5G.UJ.Zqbg.83y6MrO/GqNujJc/zDfMiAx6keBe5gGyUhbSim";
 export const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
-// EmailJS Configuration (Wajib diisi agar email benar-benar terkirim)
+// EmailJS Configuration (Wajib diisi LENGKAP agar email benar-benar terkirim)
 // Daftar gratis di https://www.emailjs.com/
 export const EMAILJS_SERVICE_ID = "service_3neptae"; 
-export const EMAILJS_TEMPLATE_ID = ""; // Masukkan Template ID dari EmailJS, cth: "template_abc"
-export const EMAILJS_PUBLIC_KEY = "";  // Masukkan Public Key dari EmailJS, cth: "user_123"
+export const EMAILJS_TEMPLATE_ID = ""; // WAJIB DIISI: Template ID dari EmailJS, cth: "template_abc123"
+export const EMAILJS_PUBLIC_KEY = "";  // WAJIB DIISI: Public Key dari EmailJS, cth: "user_xyz123"
 
 // Default users configuration
 export const AUTHORIZED_USERS: User[] = [
