@@ -77,7 +77,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
   }, [jobs]);
 
   const handleDownloadTemplate = () => {
-    const headers = "Kategori,Sub Kategori,Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Dateline (YYYY-MM-DD),Keterangan";
+    const headers = "Kategori,Sub Kategori,Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan";
     const exampleRow = "Penyesuaian,Publish Rate,2024-03-20,Jakarta,Update Tarif,Pending,2024-03-25,Catatan Tambahan";
     const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + exampleRow;
     const encodedUri = encodeURI(csvContent);
@@ -224,7 +224,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                 <th className="p-4">Pekerjaan</th>
                                 <th className="p-4">Keterangan</th>
                                 <th className="p-4">Status</th>
-                                <th className="p-4">Dateline</th>
+                                <th className="p-4">Deadline</th>
                                 <th className="p-4">Oleh</th>
                             </tr>
                         </thead>
@@ -340,7 +340,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         >
           <AlertCircle className="w-6 h-6 text-red-600 mr-3 mt-0.5" />
           <div className="flex-1">
-            <h4 className="text-red-800 font-bold text-lg">PERHATIAN: {stats.overdue} Pekerjaan Melewati Dateline!</h4>
+            <h4 className="text-red-800 font-bold text-lg">PERHATIAN: {stats.overdue} Pekerjaan Melewati Deadline!</h4>
             <p className="text-red-700 mt-1">
               Mohon segera selesaikan pekerjaan yang tertunda. Klik disini untuk melihat detail.
             </p>
@@ -396,7 +396,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Melewati Dateline</p>
+            <p className="text-gray-500 text-sm">Melewati Deadline</p>
             <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
           </div>
         </div>
@@ -442,13 +442,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                    dataKey="name" 
-                    fontSize={10} 
-                    interval={0} 
-                    tickLine={false} 
-                    axisLine={false} 
-                />
+                <XAxis dataKey="name" fontSize={10} interval={0} tickLine={false} axisLine={false} />
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip cursor={{fill: 'transparent'}} />
                 <Bar 
