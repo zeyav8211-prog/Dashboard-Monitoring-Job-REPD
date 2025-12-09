@@ -139,8 +139,9 @@ export const JobManager: React.FC<JobManagerProps> = ({
         if (cols.length >= 5 && cols[0]) {
             const rawStatus = cols[3]?.trim();
             let validStatus: Status = 'Pending';
-            if (rawStatus === 'In Progress' || rawStatus === 'Completed' || rawStatus === 'Overdue') {
-                validStatus = rawStatus;
+            const allowedStatuses = ['In Progress', 'Completed', 'Overdue', 'Hold', 'Cancel'];
+            if (allowedStatuses.includes(rawStatus)) {
+                validStatus = rawStatus as Status;
             }
 
             // CSV Columns mapping based on template
@@ -182,8 +183,12 @@ export const JobManager: React.FC<JobManagerProps> = ({
   );
 
   const getStatusColor = (status: Status, deadline: string) => {
+    if (status === 'Hold') return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (status === 'Cancel') return 'bg-gray-200 text-gray-800 border-gray-300';
+
     const isOverdue = new Date() > new Date(deadline) && status !== 'Completed';
     if (isOverdue) return 'bg-red-100 text-red-800 border-red-200';
+    
     switch (status) {
       case 'Completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'In Progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -322,6 +327,8 @@ export const JobManager: React.FC<JobManagerProps> = ({
                     <option value="Pending">Pending</option>
                     <option value="In Progress">In Progress</option>
                     <option value="Completed">Completed</option>
+                    <option value="Hold">Hold</option>
+                    <option value="Cancel">Cancel</option>
                   </select>
                 </div>
 
@@ -408,12 +415,14 @@ export const JobManager: React.FC<JobManagerProps> = ({
                              <option value="Pending">Pending</option>
                              <option value="In Progress">In Progress</option>
                              <option value="Completed">Completed</option>
+                             <option value="Hold">Hold</option>
+                             <option value="Cancel">Cancel</option>
                           </select>
                         </td>
                         <td className="p-4">
                            <input 
                               type="date"
-                              className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}
+                              className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Cancel' && job.status !== 'Hold' ? 'text-red-600' : 'text-gray-600'}`}
                               value={job.deadline}
                               onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
                            />
