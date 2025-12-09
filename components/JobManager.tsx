@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Job, Status, User } from '../types';
-import { Plus, Upload, Trash2, X, Search, FileDown, Pencil } from 'lucide-react';
+import { Plus, Upload, X, Search, FileDown, Pencil } from 'lucide-react';
 
 interface JobManagerProps {
   category: string;
@@ -101,8 +101,8 @@ export const JobManager: React.FC<JobManagerProps> = ({
 
   const handleDownloadTemplate = () => {
     const headers = isProductionMaster
-      ? "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan,Tanggal Aktifasi (YYYY-MM-DD)"
-      : "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan";
+      ? "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Nama Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan,Tanggal Aktifasi (YYYY-MM-DD)"
+      : "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Nama Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan";
 
     const today = new Date().toISOString().split('T')[0];
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -196,6 +196,15 @@ export const JobManager: React.FC<JobManagerProps> = ({
     }
   };
 
+  const formatKeterangan = (text: string | undefined) => {
+    if (!text) return '-';
+    // Menampilkan 40 karakter terakhir
+    if (text.length > 40) {
+        return '...' + text.slice(-40);
+    }
+    return text;
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 min-h-[600px] flex flex-col">
       <div className="p-6 border-b border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
@@ -283,7 +292,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Pekerjaan</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pekerjaan</label>
                   <input 
                     type="text" 
                     required
@@ -333,7 +342,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Deadline (Batas Waktu)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
                   <input 
                     type="date" 
                     required
@@ -367,7 +376,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
                 type="text" 
-                placeholder="Cari Cabang, Jenis Pekerjaan, atau Keterangan..." 
+                placeholder="Cari Cabang, Nama Pekerjaan, atau Keterangan..." 
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -380,13 +389,13 @@ export const JobManager: React.FC<JobManagerProps> = ({
                   <tr>
                     <th className="p-4 whitespace-nowrap">Tanggal</th>
                     <th className="p-4 whitespace-nowrap">Cabang / Dept</th>
-                    <th className="p-4">Jenis Pekerjaan</th>
+                    <th className="p-4">Nama Pekerjaan</th>
                     <th className="p-4">Keterangan</th>
                     {isProductionMaster && <th className="p-4 whitespace-nowrap">Aktifasi</th>}
                     <th className="p-4 whitespace-nowrap">Status</th>
                     <th className="p-4 whitespace-nowrap">Deadline</th>
                     <th className="p-4 whitespace-nowrap">Oleh</th>
-                    <th className="p-4 text-center">Aksi</th>
+                    <th className="p-4 text-center">Edit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -402,7 +411,9 @@ export const JobManager: React.FC<JobManagerProps> = ({
                         <td className="p-4">{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
                         <td className="p-4 font-medium text-gray-800">{job.branchDept}</td>
                         <td className="p-4 max-w-xs">{job.jobType}</td>
-                        <td className="p-4 max-w-xs text-gray-500 italic">{job.keterangan || '-'}</td>
+                        <td className="p-4 max-w-xs text-gray-500 italic" title={job.keterangan}>
+                            {formatKeterangan(job.keterangan)}
+                        </td>
                         {isProductionMaster && (
                           <td className="p-4">{job.activationDate ? new Date(job.activationDate).toLocaleDateString('id-ID') : '-'}</td>
                         )}
@@ -439,13 +450,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                               >
                                 <Pencil className="w-4 h-4" />
                               </button>
-                              <button 
-                                onClick={() => onDeleteJob(job.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
-                                title="Hapus"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {/* Delete button removed as per request */}
                           </div>
                         </td>
                       </tr>
