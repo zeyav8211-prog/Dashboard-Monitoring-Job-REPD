@@ -40,8 +40,8 @@ export const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 // EmailJS Configuration (Wajib diisi LENGKAP agar email benar-benar terkirim)
 // Daftar gratis di https://www.emailjs.com/
 export const EMAILJS_SERVICE_ID = "service_3neptae"; 
-export const EMAILJS_TEMPLATE_ID = "template_10tz7wb"; // WAJIB DIISI: Template ID dari EmailJS, cth: "template_abc123"
-export const EMAILJS_PUBLIC_KEY = "a2Xkh3BhQaFKyO-jX";  // WAJIB DIISI: Public Key dari EmailJS, cth: "user_xyz123"
+export const EMAILJS_TEMPLATE_ID = "template_10tz7wb"; // Updated based on user request
+export const EMAILJS_PUBLIC_KEY = "a2Xkh3BhQaFKyO-jX";  // Updated based on user request
 
 // Default users configuration
 export const AUTHORIZED_USERS: User[] = [
