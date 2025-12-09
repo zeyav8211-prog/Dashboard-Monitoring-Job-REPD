@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Job, Status, User } from '../types';
-import { Plus, Upload, X, Search, FileDown, Pencil } from 'lucide-react';
+import { Plus, Upload, X, Search, FileDown, Pencil, CheckSquare } from 'lucide-react';
 
 interface JobManagerProps {
   category: string;
@@ -32,10 +32,14 @@ export const JobManager: React.FC<JobManagerProps> = ({
   const [formData, setFormData] = useState<Partial<Job>>({
     status: 'Pending',
     dateInput: new Date().toISOString().split('T')[0],
-    keterangan: ''
+    keterangan: '',
+    isCabangConfirmed: false,
+    isDisposition: false,
+    isApproved: false
   });
 
   const isProductionMaster = category === "Produksi Master Data";
+  const isPenyesuaian = category === "Penyesuaian";
 
   const handleEdit = (job: Job) => {
     setEditingId(job.id);
@@ -46,7 +50,10 @@ export const JobManager: React.FC<JobManagerProps> = ({
       status: job.status,
       deadline: job.deadline,
       activationDate: job.activationDate,
-      keterangan: job.keterangan || ''
+      keterangan: job.keterangan || '',
+      isCabangConfirmed: job.isCabangConfirmed || false,
+      isDisposition: job.isDisposition || false,
+      isApproved: job.isApproved || false
     });
     setView('form');
   };
@@ -60,7 +67,23 @@ export const JobManager: React.FC<JobManagerProps> = ({
       branchDept: '',
       jobType: '',
       deadline: '',
-      keterangan: ''
+      keterangan: '',
+      isCabangConfirmed: false,
+      isDisposition: false,
+      isApproved: false
+    });
+  };
+
+  const handleCheckboxChange = (field: 'isCabangConfirmed' | 'isDisposition' | 'isApproved', checked: boolean) => {
+    setFormData(prev => {
+        const newData = { ...prev, [field]: checked };
+        
+        // Logika Auto Completed saat Approve dicentang
+        if (field === 'isApproved' && checked) {
+            newData.status = 'Completed';
+        }
+        
+        return newData;
     });
   };
 
@@ -76,7 +99,10 @@ export const JobManager: React.FC<JobManagerProps> = ({
             status: formData.status as Status,
             deadline: formData.deadline,
             activationDate: isProductionMaster ? formData.activationDate : undefined,
-            keterangan: formData.keterangan
+            keterangan: formData.keterangan,
+            isCabangConfirmed: formData.isCabangConfirmed,
+            isDisposition: formData.isDisposition,
+            isApproved: formData.isApproved
         });
     } else {
         // Create new
@@ -91,7 +117,10 @@ export const JobManager: React.FC<JobManagerProps> = ({
             deadline: formData.deadline || '',
             activationDate: isProductionMaster ? formData.activationDate : undefined,
             keterangan: formData.keterangan || '',
-            createdBy: currentUser.email
+            createdBy: currentUser.email,
+            isCabangConfirmed: formData.isCabangConfirmed,
+            isDisposition: formData.isDisposition,
+            isApproved: formData.isApproved
         };
         onAddJob(newJob);
     }
@@ -313,6 +342,49 @@ export const JobManager: React.FC<JobManagerProps> = ({
                   />
                 </div>
 
+                {isPenyesuaian && (
+                    <div className="md:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
+                            <CheckSquare className="w-4 h-4 mr-2 text-blue-600"/> 
+                            Validasi & Persetujuan
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <label className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-white transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                    checked={formData.isCabangConfirmed}
+                                    onChange={(e) => handleCheckboxChange('isCabangConfirmed', e.target.checked)}
+                                />
+                                <span className="text-sm text-gray-700 font-medium">Konfirmasi Cabang</span>
+                            </label>
+                            
+                            <label className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-white transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                    checked={formData.isDisposition}
+                                    onChange={(e) => handleCheckboxChange('isDisposition', e.target.checked)}
+                                />
+                                <span className="text-sm text-gray-700 font-medium">Disposisi</span>
+                            </label>
+
+                            <label className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-white transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                                    checked={formData.isApproved}
+                                    onChange={(e) => handleCheckboxChange('isApproved', e.target.checked)}
+                                />
+                                <span className="text-sm text-gray-700 font-bold">Approve</span>
+                            </label>
+                        </div>
+                        {formData.isApproved && (
+                             <p className="text-xs text-green-600 mt-2 ml-1 italic">* Status otomatis menjadi Completed saat Approve dicentang.</p>
+                        )}
+                    </div>
+                )}
+
                 {isProductionMaster && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Aktifasi</label>
@@ -413,6 +485,13 @@ export const JobManager: React.FC<JobManagerProps> = ({
                         <td className="p-4 max-w-xs">{job.jobType}</td>
                         <td className="p-4 max-w-xs text-gray-500 italic" title={job.keterangan}>
                             {formatKeterangan(job.keterangan)}
+                            {isPenyesuaian && (job.isCabangConfirmed || job.isDisposition || job.isApproved) && (
+                                <div className="flex gap-1 mt-1">
+                                    {job.isCabangConfirmed && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200">K. Cabang</span>}
+                                    {job.isDisposition && <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded border border-indigo-200">Disposisi</span>}
+                                    {job.isApproved && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded border border-green-200 font-bold">Approved</span>}
+                                </div>
+                            )}
                         </td>
                         {isProductionMaster && (
                           <td className="p-4">{job.activationDate ? new Date(job.activationDate).toLocaleDateString('id-ID') : '-'}</td>
