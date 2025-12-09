@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid 
 } from 'recharts';
-import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle } from 'lucide-react';
 
 interface DashboardSummaryProps {
   jobs: Job[];
@@ -18,7 +18,8 @@ interface DashboardSummaryProps {
   lastUpdated?: Date | null;
 }
 
-const COLORS = ['#0088FE', '#FFBB28', '#00C49F', '#EE2E24'];
+// Updated Colors: Added Purple for Hold and Gray for Cancel
+const COLORS = ['#0088FE', '#FFBB28', '#00C49F', '#EE2E24', '#8884d8', '#9CA3AF'];
 
 export const DashboardSummary: React.FC<DashboardSummaryProps> = ({ 
     jobs, 
@@ -38,16 +39,19 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     const completed = jobs.filter(j => j.status === 'Completed').length;
     const pending = jobs.filter(j => j.status === 'Pending').length;
     const inProgress = jobs.filter(j => j.status === 'In Progress').length;
+    const hold = jobs.filter(j => j.status === 'Hold').length;
+    const cancel = jobs.filter(j => j.status === 'Cancel').length;
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Cancelled and Hold jobs are usually not considered "Overdue" in the traditional sense
     const overdueJobs = jobs.filter(j => {
       const deadline = new Date(j.deadline);
-      return deadline < today && j.status !== 'Completed';
+      return deadline < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold';
     });
 
-    return { total, completed, pending, inProgress, overdue: overdueJobs.length, overdueList: overdueJobs };
+    return { total, completed, pending, inProgress, hold, cancel, overdue: overdueJobs.length, overdueList: overdueJobs };
   }, [jobs]);
 
   const pieData = [
@@ -55,7 +59,9 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     { name: 'In Progress', value: stats.inProgress },
     { name: 'Completed', value: stats.completed },
     { name: 'Overdue', value: stats.overdue },
-  ];
+    { name: 'Hold', value: stats.hold },
+    { name: 'Cancel', value: stats.cancel },
+  ].filter(item => item.value > 0);
 
   const barData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -107,7 +113,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         if (cols.length >= 7 && cols[0] && cols[1]) {
             const rawStatus = cols[5]?.trim();
             let validStatus: Status = 'Pending';
-            if (rawStatus === 'In Progress' || rawStatus === 'Completed' || rawStatus === 'Overdue') {
+            const allowedStatuses = ['In Progress', 'Completed', 'Overdue', 'Hold', 'Cancel'];
+            if (allowedStatuses.includes(rawStatus)) {
                 validStatus = rawStatus as Status;
             }
 
@@ -147,7 +154,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     } else if (filterStatus === 'Overdue') {
         const today = new Date();
         today.setHours(0,0,0,0);
-        result = jobs.filter(j => new Date(j.deadline) < today && j.status !== 'Completed');
+        result = jobs.filter(j => new Date(j.deadline) < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold');
     } else if (filterStatus === 'In Progress') {
         result = jobs.filter(j => j.status === 'In Progress' || j.status === 'Pending');
     } else if (Object.keys(MENU_STRUCTURE).includes(filterStatus)) {
@@ -170,8 +177,12 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
   }, [jobs, filterStatus, searchTerm]);
 
   const getStatusColor = (status: Status, deadline: string) => {
+    if (status === 'Hold') return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (status === 'Cancel') return 'bg-gray-200 text-gray-800 border-gray-300';
+    
     const isOverdue = new Date() > new Date(deadline) && status !== 'Completed';
     if (isOverdue) return 'bg-red-100 text-red-800 border-red-200';
+    
     switch (status) {
       case 'Completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'In Progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -251,12 +262,14 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                                 <option value="Pending">Pending</option>
                                                 <option value="In Progress">In Progress</option>
                                                 <option value="Completed">Completed</option>
+                                                <option value="Hold">Hold</option>
+                                                <option value="Cancel">Cancel</option>
                                             </select>
                                         </td>
                                         <td className="p-4">
                                             <input 
                                                 type="date"
-                                                className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}
+                                                className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Cancel' && job.status !== 'Hold' ? 'text-red-600' : 'text-gray-600'}`}
                                                 value={job.deadline}
                                                 onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
                                             />
@@ -348,57 +361,72 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <div 
             onClick={() => setFilterStatus('Total')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
         >
-          <div className="p-3 rounded-full bg-blue-50 text-blue-600 mr-4 group-hover:bg-blue-100 transition-colors">
+          <div className="p-3 rounded-full bg-blue-50 text-blue-600 mb-2 group-hover:bg-blue-100 transition-colors">
             <CalendarDays className="w-6 h-6" />
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Total Pekerjaan</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-          </div>
+          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+          <p className="text-gray-500 text-xs">Total Pekerjaan</p>
         </div>
 
         <div 
             onClick={() => setFilterStatus('Completed')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
         >
-          <div className="p-3 rounded-full bg-green-50 text-green-600 mr-4 group-hover:bg-green-100 transition-colors">
+          <div className="p-3 rounded-full bg-green-50 text-green-600 mb-2 group-hover:bg-green-100 transition-colors">
             <CheckCircle2 className="w-6 h-6" />
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Selesai</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
-          </div>
+          <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
+          <p className="text-gray-500 text-xs">Selesai</p>
         </div>
 
         <div 
             onClick={() => setFilterStatus('In Progress')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
         >
-          <div className="p-3 rounded-full bg-yellow-50 text-yellow-600 mr-4 group-hover:bg-yellow-100 transition-colors">
+          <div className="p-3 rounded-full bg-yellow-50 text-yellow-600 mb-2 group-hover:bg-yellow-100 transition-colors">
             <Clock className="w-6 h-6" />
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Dalam Proses</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.pending + stats.inProgress}</p>
-          </div>
+          <p className="text-2xl font-bold text-gray-800">{stats.pending + stats.inProgress}</p>
+          <p className="text-gray-500 text-xs">Dalam Proses</p>
         </div>
 
         <div 
             onClick={() => setFilterStatus('Overdue')}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center cursor-pointer hover:shadow-md transition-shadow group"
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
         >
-          <div className="p-3 rounded-full bg-red-50 text-red-600 mr-4 group-hover:bg-red-100 transition-colors">
+          <div className="p-3 rounded-full bg-red-50 text-red-600 mb-2 group-hover:bg-red-100 transition-colors">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Melewati Deadline</p>
-            <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
+          <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
+          <p className="text-gray-500 text-xs">Melewati Deadline</p>
+        </div>
+
+        <div 
+            onClick={() => setFilterStatus('Hold')}
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
+        >
+          <div className="p-3 rounded-full bg-purple-50 text-purple-600 mb-2 group-hover:bg-purple-100 transition-colors">
+            <PauseCircle className="w-6 h-6" />
           </div>
+          <p className="text-2xl font-bold text-purple-800">{stats.hold}</p>
+          <p className="text-gray-500 text-xs">Hold</p>
+        </div>
+
+        <div 
+            onClick={() => setFilterStatus('Cancel')}
+            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
+        >
+          <div className="p-3 rounded-full bg-gray-100 text-gray-600 mb-2 group-hover:bg-gray-200 transition-colors">
+            <XCircle className="w-6 h-6" />
+          </div>
+          <p className="text-2xl font-bold text-gray-600">{stats.cancel}</p>
+          <p className="text-gray-500 text-xs">Cancel</p>
         </div>
       </div>
 
@@ -442,8 +470,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" fontSize={9} interval={0} tickLine={false} axisLine={false} />
-                <YAxis fontSize={9} tickLine={false} axisLine={false} />
+                <XAxis dataKey="name" fontSize={10} interval={0} tickLine={false} axisLine={false} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip cursor={{fill: 'transparent'}} />
                 <Bar 
                     dataKey="count" 
