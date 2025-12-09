@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { LOGO_URL } from '../constants';
 import { User } from '../types';
-import { LogIn, Lock, User as UserIcon, Send, ArrowLeft, Mail, CheckCircle, AlertTriangle, Copy } from 'lucide-react';
+import { LogIn, Lock, User as UserIcon, Send, ArrowLeft, Mail, CheckCircle, AlertTriangle, Copy, Eye, EyeOff } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -13,6 +13,7 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
   
@@ -67,6 +68,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
       setError(''); 
       setPassword('');
       setEmail('');
+      setShowPassword(false);
       setResetResult(null);
   };
 
@@ -228,18 +230,25 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
                 Password
                 </label>
                 <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                    type="password"
-                    id="password"
-                    required
-                    placeholder="Password Anda"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE2E24] focus:border-[#EE2E24] outline-none transition-all"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        required
+                        placeholder="Password Anda"
+                        className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE2E24] focus:border-[#EE2E24] outline-none transition-all"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none"
+                    >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                 </div>
                 <div className="flex justify-end mt-1">
                     <button 
