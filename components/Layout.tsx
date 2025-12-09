@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Menu, ChevronDown, ChevronRight, LayoutDashboard, Briefcase, LogOut, Lock, X } from 'lucide-react';
+import { Menu, ChevronDown, ChevronRight, LayoutDashboard, Briefcase, LogOut, Lock, X, Eye, EyeOff } from 'lucide-react';
 import { MENU_STRUCTURE, LOGO_URL } from '../constants';
 import { User } from '../types';
 
@@ -35,6 +35,10 @@ export const Layout: React.FC<LayoutProps> = ({
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [passMessage, setPassMessage] = useState({ type: '', text: '' });
+  
+  // States for toggling visibility
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
 
   const toggleMenu = (menu: string) => {
     setExpandedMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
@@ -61,6 +65,8 @@ export const Layout: React.FC<LayoutProps> = ({
         setShowPasswordModal(false);
         setOldPass('');
         setNewPass('');
+        setShowOldPass(false);
+        setShowNewPass(false);
         setPassMessage({ type: '', text: '' });
       }, 1500);
     } else {
@@ -226,12 +232,19 @@ export const Layout: React.FC<LayoutProps> = ({
                 <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
-                      type="password"
+                      type={showOldPass ? "text" : "password"}
                       required
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#EE2E24]"
+                      className="w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#EE2E24]"
                       value={oldPass}
                       onChange={(e) => setOldPass(e.target.value)}
                     />
+                    <button
+                        type="button"
+                        onClick={() => setShowOldPass(!showOldPass)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                        {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                 </div>
               </div>
 
@@ -240,12 +253,19 @@ export const Layout: React.FC<LayoutProps> = ({
                 <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
-                      type="password"
+                      type={showNewPass ? "text" : "password"}
                       required
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#EE2E24]"
+                      className="w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#EE2E24]"
                       value={newPass}
                       onChange={(e) => setNewPass(e.target.value)}
                     />
+                    <button
+                        type="button"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                        {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                 </div>
               </div>
 
