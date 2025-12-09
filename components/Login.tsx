@@ -2,12 +2,12 @@
 import React, { useState } from 'react';
 import { LOGO_URL } from '../constants';
 import { User } from '../types';
-import { LogIn, Lock, User as UserIcon, Send, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
+import { LogIn, Lock, User as UserIcon, Send, ArrowLeft, Mail, CheckCircle, AlertTriangle, Copy } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
   users: User[];
-  onResetPassword: (email: string) => Promise<boolean>;
+  onResetPassword: (email: string) => Promise<{ success: boolean; token?: string; isMock?: boolean }>;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword }) => {
@@ -18,6 +18,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
   
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetResult, setResetResult] = useState<{token?: string, isMock?: boolean} | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,11 +44,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
     setError('');
     setSuccessMsg(false);
     setResetLoading(true);
+    setResetResult(null);
 
     try {
-        const success = await onResetPassword(email);
-        if (success) {
-            // Simulasi sukses
+        const result = await onResetPassword(email);
+        if (result.success) {
+            setResetResult(result);
             setSuccessMsg(true);
         } else {
             setError('Email tidak ditemukan dalam sistem.');
@@ -65,6 +67,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
       setError(''); 
       setPassword('');
       setEmail('');
+      setResetResult(null);
   };
 
   return (
@@ -77,7 +80,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
             className="h-16 object-contain mb-4"
           />
           <h2 className="text-2xl font-bold text-[#002F6C]">
-            {isResetMode ? (successMsg ? 'Email Terkirim' : 'Lupa Password?') : 'Job Dashboard'}
+            {isResetMode ? (successMsg ? 'Permintaan Diproses' : 'Lupa Password?') : 'Job Dashboard'}
           </h2>
           {!successMsg && (
               <p className="text-gray-500 text-sm text-center mt-2">
@@ -98,12 +101,33 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
                         </div>
                     </div>
                     
-                    <h3 className="text-lg font-bold text-gray-800 mb-2">Password Baru Terkirim!</h3>
-                    <p className="text-gray-600 text-sm mb-8 leading-relaxed">
-                        Kami telah mengirimkan <strong>Password Baru</strong> ke email <strong>{email}</strong>. 
-                        <br/><br/>
-                        Silakan periksa kotak masuk (Inbox) atau folder Spam Anda, lalu login menggunakan password tersebut.
-                    </p>
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">Password Baru Dibuat!</h3>
+                    
+                    {resetResult?.isMock ? (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-left">
+                           <div className="flex items-start gap-2 mb-2">
+                                <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                <p className="text-xs text-yellow-800 font-bold">
+                                  Konfigurasi Email Belum Lengkap
+                                </p>
+                           </div>
+                           <p className="text-xs text-yellow-700 mb-3 leading-relaxed">
+                             Sistem tidak dapat mengirim email karena <strong>Template ID</strong> atau <strong>Public Key</strong> belum diisi di kode program.
+                             <br/>Silakan gunakan password berikut untuk login:
+                           </p>
+                           <div className="bg-white border border-gray-300 border-dashed p-3 rounded text-center relative group">
+                             <span className="font-mono font-bold text-xl text-gray-800 tracking-widest select-all">
+                               {resetResult.token}
+                             </span>
+                           </div>
+                        </div>
+                    ) : (
+                        <p className="text-gray-600 text-sm mb-8 leading-relaxed">
+                            Kami telah mengirimkan <strong>Password Baru</strong> ke email <strong>{email}</strong>. 
+                            <br/><br/>
+                            Silakan periksa kotak masuk (Inbox) atau folder Spam Anda, lalu login menggunakan password tersebut.
+                        </p>
+                    )}
 
                     <button
                         onClick={handleBackToLogin}
