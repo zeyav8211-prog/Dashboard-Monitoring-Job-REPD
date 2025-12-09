@@ -101,8 +101,8 @@ export const JobManager: React.FC<JobManagerProps> = ({
 
   const handleDownloadTemplate = () => {
     const headers = isProductionMaster
-      ? "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Dateline (YYYY-MM-DD),Keterangan,Tanggal Aktifasi (YYYY-MM-DD)"
-      : "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Dateline (YYYY-MM-DD),Keterangan";
+      ? "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan,Tanggal Aktifasi (YYYY-MM-DD)"
+      : "Tanggal Input (YYYY-MM-DD),Cabang/Dept,Jenis Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan";
 
     const today = new Date().toISOString().split('T')[0];
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -326,7 +326,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Dateline (Batas Waktu)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Deadline (Batas Waktu)</label>
                   <input 
                     type="date" 
                     required
@@ -377,7 +377,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
                     <th className="p-4">Keterangan</th>
                     {isProductionMaster && <th className="p-4 whitespace-nowrap">Aktifasi</th>}
                     <th className="p-4 whitespace-nowrap">Status</th>
-                    <th className="p-4 whitespace-nowrap">Dateline</th>
+                    <th className="p-4 whitespace-nowrap">Deadline</th>
                     <th className="p-4 whitespace-nowrap">Oleh</th>
                     <th className="p-4 text-center">Aksi</th>
                   </tr>
