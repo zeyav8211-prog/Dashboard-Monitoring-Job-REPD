@@ -7,7 +7,7 @@ import { LogIn, Lock, User as UserIcon, Send, ArrowLeft, Mail, CheckCircle, Aler
 interface LoginProps {
   onLogin: (user: User) => void;
   users: User[];
-  onResetPassword: (email: string) => Promise<{ success: boolean; token?: string; isMock?: boolean }>;
+  onResetPassword: (email: string) => Promise<{ success: boolean; token?: string; isMock?: boolean; errorMessage?: string }>;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword }) => {
@@ -18,7 +18,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
   
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [resetResult, setResetResult] = useState<{token?: string, isMock?: boolean} | null>(null);
+  const [resetResult, setResetResult] = useState<{token?: string, isMock?: boolean, errorMessage?: string} | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,12 +108,25 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onResetPassword })
                            <div className="flex items-start gap-2 mb-2">
                                 <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                                 <p className="text-xs text-yellow-800 font-bold">
-                                  Konfigurasi Email Belum Lengkap
+                                  {resetResult.errorMessage ? "Pengiriman Email Gagal" : "Konfigurasi Email Belum Lengkap"}
                                 </p>
                            </div>
                            <p className="text-xs text-yellow-700 mb-3 leading-relaxed">
-                             Sistem tidak dapat mengirim email karena <strong>Template ID</strong> atau <strong>Public Key</strong> belum diisi di kode program.
-                             <br/>Silakan gunakan password berikut untuk login:
+                             {resetResult.errorMessage ? (
+                                <>
+                                  Sistem menolak pengiriman email. Detail error:<br/>
+                                  <span className="font-mono bg-yellow-100 px-1 rounded font-bold text-red-600 break-all">
+                                    {resetResult.errorMessage}
+                                  </span>
+                                  <br/><br/>
+                                  Password tetap dibuat agar Anda bisa login:
+                                </>
+                             ) : (
+                                <>
+                                  Sistem tidak dapat mengirim email karena <strong>Template ID</strong> atau <strong>Public Key</strong> belum diisi di kode program.
+                                  <br/>Silakan gunakan password berikut untuk login:
+                                </>
+                             )}
                            </p>
                            <div className="bg-white border border-gray-300 border-dashed p-3 rounded text-center relative group">
                              <span className="font-mono font-bold text-xl text-gray-800 tracking-widest select-all">
