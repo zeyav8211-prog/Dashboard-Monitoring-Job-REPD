@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardSummary } from './components/DashboardSummary';
@@ -163,22 +161,23 @@ function App() {
                         to_name: targetUser.name,
                         to_email: targetUser.email,
                         reset_token: resetToken,
-                        message: `Password sementara Anda adalah: ${resetToken}. Silakan login dan segera ganti password.`
+                        // Pesan yang dikirim ke email
+                        message: `Kami menerima permintaan reset password. Password sementara Anda adalah: ${resetToken}. Silakan login dan segera ganti password Anda melalui menu profile.`
                     },
                     EMAILJS_PUBLIC_KEY
                 );
                 console.log("Email berhasil dikirim ke " + email);
+                return true;
             } catch (error) {
                 console.error("Gagal mengirim email:", error);
-                alert("Password berhasil direset menjadi: " + resetToken + ", namun GAGAL mengirim email. Mohon cek konfigurasi EmailJS.");
-                return true; // Tetap return true karena password sudah berubah di DB
+                alert("Password berhasil direset di database menjadi: " + resetToken + ", namun sistem GAGAL mengirim email. Mohon cek quota atau konfigurasi EmailJS Anda.");
+                return true; // Tetap return true karena password sudah berubah di DB, meski email gagal
             }
         } else {
             console.warn("EmailJS credentials belum dikonfigurasi di constants.ts");
-            alert(`[MODE DEVELOPER] EmailJS belum disetting. Password reset menjadi: ${resetToken}`);
+            alert(`[MODE TEST] EmailJS Keys belum lengkap di constants.ts.\nPassword reset menjadi: ${resetToken}\n(Email tidak terkirim)`);
+            return true;
         }
-        
-        return true;
     }
     return false;
   };
