@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardSummary } from './components/DashboardSummary';
@@ -155,16 +154,27 @@ function App() {
         // 2. Kirim Email menggunakan EmailJS
         if (EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY) {
             try {
+                // Trim keys to avoid copy-paste whitespace errors
+                const serviceId = EMAILJS_SERVICE_ID.trim();
+                const templateId = EMAILJS_TEMPLATE_ID.trim();
+                const publicKey = EMAILJS_PUBLIC_KEY.trim();
+
+                console.log(`[EmailJS] Attempting to send to ${email} via Service: ${serviceId}`);
+
                 await emailjs.send(
-                    EMAILJS_SERVICE_ID,
-                    EMAILJS_TEMPLATE_ID,
+                    serviceId,
+                    templateId,
                     {
                         to_name: targetUser.name,
-                        to_email: targetUser.email,
+                        to_email: targetUser.email, 
+                        
+                        // Send variations of variable names to support different template defaults
                         reset_token: resetToken,
+                        password: resetToken,
+                        otp: resetToken,
                         message: `Permintaan reset password diterima. Password baru Anda adalah: ${resetToken}. Silakan login dan segera ganti password ini melalui menu profile.`
                     },
-                    EMAILJS_PUBLIC_KEY
+                    publicKey
                 );
                 console.log("Email berhasil dikirim ke " + email);
                 return { success: true, isMock: false };
@@ -259,17 +269,10 @@ function App() {
   };
 
   const visibleJobs = useMemo(() => {
-    if (!currentUser) return [];
-    const userRole = users.find(u => u.email === currentUser.email)?.role || currentUser.role;
-
-    if (userRole === 'Admin') {
-        return jobs;
-    }
-
-    return jobs.filter(job => 
-        job.createdBy === currentUser.email || !job.createdBy
-    );
-  }, [jobs, currentUser, users]);
+    // Agar fungsi Monitoring Dashboard berjalan baik, semua user bisa melihat semua pekerjaan.
+    // Pembatasan hak edit dilakukan di level UI (Tombol Edit disembunyikan).
+    return jobs;
+  }, [jobs]);
 
   if (!currentUser) {
     return (
