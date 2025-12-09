@@ -1,12 +1,11 @@
-
 import React, { useMemo, useState, useRef } from 'react';
-import { Job, Status } from '../types';
+import { Job, Status, User } from '../types';
 import { MENU_STRUCTURE } from '../constants';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid 
 } from 'recharts';
-import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle, Tag, MapPin, X, CheckSquare, FileText, Calendar, User as UserIcon } from 'lucide-react';
 
 interface DashboardSummaryProps {
   jobs: Job[];
@@ -16,6 +15,7 @@ interface DashboardSummaryProps {
   isSaving?: boolean;
   connectionError?: boolean;
   lastUpdated?: Date | null;
+  currentUser: User;
 }
 
 // Updated Colors: Added Purple for Hold and Gray for Cancel
@@ -28,10 +28,12 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     isLoading = false,
     isSaving = false,
     connectionError = false,
-    lastUpdated = null
+    lastUpdated = null,
+    currentUser
 }) => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stats = useMemo(() => {
@@ -205,6 +207,14 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       return filterStatus;
   }
 
+  // Permission Checker
+  const canEditJob = (job: Job) => {
+      // Admin can edit everything
+      if (currentUser.role === 'Admin') return true;
+      // User can only edit if they created the job
+      return job.createdBy === currentUser.email;
+  };
+
   if (filterStatus) {
     return (
         <div className="space-y-6">
@@ -252,8 +262,15 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                             {filteredList.length === 0 ? (
                                 <tr><td colSpan={8} className="p-8 text-center text-gray-400">Tidak ada data ditemukan.</td></tr>
                             ) : (
-                                filteredList.map(job => (
-                                    <tr key={job.id} className="hover:bg-gray-50">
+                                filteredList.map(job => {
+                                    const userCanEdit = canEditJob(job);
+                                    
+                                    return (
+                                    <tr 
+                                        key={job.id} 
+                                        className="hover:bg-gray-50 cursor-pointer"
+                                        onClick={() => setSelectedJob(job)}
+                                    >
                                         <td className="p-4">
                                             <div className="font-medium text-gray-800">{job.category}</div>
                                             <div className="text-xs text-gray-500">{job.subCategory}</div>
@@ -263,12 +280,21 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                         <td className="p-4">{job.jobType}</td>
                                         <td className="p-4 italic text-gray-500" title={job.keterangan}>
                                             {formatKeterangan(job.keterangan)}
+                                             {job.category === 'Penyesuaian' && (job.isCabangConfirmed || job.isDisposition || job.isApproved) && (
+                                                <div className="flex gap-1 mt-1">
+                                                    {job.isCabangConfirmed && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200">K. Cabang</span>}
+                                                    {job.isDisposition && <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded border border-indigo-200">Disposisi</span>}
+                                                    {job.isApproved && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded border border-green-200 font-bold">Approved</span>}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-4">
                                             <select 
                                                 value={job.status}
                                                 onChange={(e) => onUpdateJob(job.id, { status: e.target.value as Status })}
-                                                className={`px-3 py-1 rounded-full text-xs font-semibold border appearance-none cursor-pointer focus:outline-none ${getStatusColor(job.status, job.deadline)}`}
+                                                disabled={!userCanEdit}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className={`px-3 py-1 rounded-full text-xs font-semibold border appearance-none focus:outline-none ${getStatusColor(job.status, job.deadline)} ${userCanEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
                                             >
                                                 <option value="Pending">Pending</option>
                                                 <option value="In Progress">In Progress</option>
@@ -278,23 +304,142 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                             </select>
                                         </td>
                                         <td className="p-4">
-                                            <input 
-                                                type="date"
-                                                className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Cancel' && job.status !== 'Hold' ? 'text-red-600' : 'text-gray-600'}`}
-                                                value={job.deadline}
-                                                onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
-                                            />
+                                            {userCanEdit ? (
+                                                <input 
+                                                    type="date"
+                                                    className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Cancel' && job.status !== 'Hold' ? 'text-red-600' : 'text-gray-600'}`}
+                                                    value={job.deadline}
+                                                    onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            ) : (
+                                                <span className={`text-sm ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}>
+                                                    {new Date(job.deadline).toLocaleDateString('id-ID')}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-4 text-xs text-gray-400">
                                             {job.createdBy || '-'}
                                         </td>
                                     </tr>
-                                ))
+                                )})
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* Job Detail Modal */}
+            {selectedJob && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedJob(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="bg-[#002F6C] p-6 text-white flex justify-between items-start relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-4 -translate-y-4">
+                                <Tag className="w-32 h-32" />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 text-blue-200 text-sm mb-1">
+                                    <span className="font-semibold uppercase tracking-wider">{selectedJob.category}</span>
+                                    <span>•</span>
+                                    <span>{selectedJob.subCategory}</span>
+                                </div>
+                                <h2 className="text-2xl font-bold leading-tight">{selectedJob.jobType}</h2>
+                                <div className="flex items-center gap-2 mt-2 text-sm text-blue-100">
+                                    <MapPin className="w-4 h-4" />
+                                    <span>{selectedJob.branchDept}</span>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedJob(null)}
+                                className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors z-20"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                            {/* Status & Dates */}
+                            <div className="flex flex-wrap gap-4 justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                <div className={`px-4 py-1.5 rounded-full text-sm font-bold border ${getStatusColor(selectedJob.status, selectedJob.deadline)}`}>
+                                    {selectedJob.status}
+                                </div>
+                                <div className="text-right">
+                                    <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-0.5 justify-end">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>Deadline</span>
+                                    </div>
+                                    <span className={`font-semibold ${new Date() > new Date(selectedJob.deadline) && selectedJob.status !== 'Completed' ? 'text-red-600' : 'text-gray-800'}`}>
+                                        {new Date(selectedJob.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Checkboxes for Penyesuaian */}
+                            {selectedJob.category === 'Penyesuaian' && (
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className={`p-3 rounded-lg border flex flex-col items-center justify-center text-center gap-2 ${selectedJob.isCabangConfirmed ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedJob.isCabangConfirmed ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                                            {selectedJob.isCabangConfirmed && <CheckSquare className="w-3.5 h-3.5" />}
+                                        </div>
+                                        <span className="text-xs font-semibold">Konfirmasi Cabang</span>
+                                    </div>
+                                    <div className={`p-3 rounded-lg border flex flex-col items-center justify-center text-center gap-2 ${selectedJob.isDisposition ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedJob.isDisposition ? 'bg-indigo-600 text-white' : 'bg-gray-200'}`}>
+                                            {selectedJob.isDisposition && <CheckSquare className="w-3.5 h-3.5" />}
+                                        </div>
+                                        <span className="text-xs font-semibold">Disposisi</span>
+                                    </div>
+                                    <div className={`p-3 rounded-lg border flex flex-col items-center justify-center text-center gap-2 ${selectedJob.isApproved ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedJob.isApproved ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
+                                            {selectedJob.isApproved && <CheckSquare className="w-3.5 h-3.5" />}
+                                        </div>
+                                        <span className="text-xs font-semibold">Approved</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Description */}
+                            <div>
+                                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                                    <FileText className="w-4 h-4 text-gray-400" />
+                                    Keterangan Lengkap
+                                </h4>
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                                    {selectedJob.keterangan || "Tidak ada keterangan."}
+                                </div>
+                            </div>
+
+                            {/* Metadata */}
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 text-xs">
+                                <div>
+                                    <span className="block text-gray-400 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Tanggal Input</span>
+                                    <span className="font-medium text-gray-700">
+                                        {new Date(selectedJob.dateInput).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-gray-400 mb-1 flex items-center gap-1"><UserIcon className="w-3 h-3" /> Dibuat Oleh</span>
+                                    <span className="font-medium text-gray-700">{selectedJob.createdBy || 'Unknown'}</span>
+                                </div>
+                                {selectedJob.activationDate && (
+                                    <div className="col-span-2 mt-2">
+                                        <span className="block text-gray-400 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Tanggal Aktifasi</span>
+                                        <span className="font-medium text-gray-700">
+                                            {new Date(selectedJob.activationDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {!canEditJob(selectedJob) && (
+                            <div className="p-4 bg-gray-50 border-t border-gray-100 text-center">
+                                <p className="text-xs text-gray-400 italic">Anda hanya dapat melihat data ini (Edit terbatas pada pembuat/admin)</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
   }
