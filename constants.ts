@@ -1,10 +1,11 @@
 
+
 import { MenuStructure, User } from './types';
 
 export const MENU_STRUCTURE: MenuStructure = {
   "Penyesuaian": {
     name: "Penyesuaian",
-    submenus: ["Harga Jual", "Routing", "Costing"]
+    submenus: ["Publish Rate", "Routing", "Costing"]
   },
   "Request Data": {
     name: "Request Data",
@@ -37,12 +38,17 @@ export const JSONBIN_BIN_ID = "692843aa43b1c97be9c875fd";
 export const JSONBIN_API_KEY = "$2a$10$LGur5G.UJ.Zqbg.83y6MrO/GqNujJc/zDfMiAx6keBe5gGyUhbSim";
 export const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
+// EmailJS Configuration (Wajib diisi agar email benar-benar terkirim)
+// Daftar gratis di https://www.emailjs.com/
+export const EMAILJS_SERVICE_ID = "service_3neptae"; 
+export const EMAILJS_TEMPLATE_ID = ""; // Masukkan Template ID dari EmailJS, cth: "template_abc"
+export const EMAILJS_PUBLIC_KEY = "";  // Masukkan Public Key dari EmailJS, cth: "user_123"
+
 // Default users configuration
 export const AUTHORIZED_USERS: User[] = [
   { email: "Ahmad.fauzan@jne.co.id", name: "Ahmad Fauzan", role: "Admin", password: "000000" },
-  { email: "agus.permana@jne.co.id", name: "Agus Permana", role: "Admin", password: "000000" },
-  { email: "muhamad.almusaeri@jne.co.id", name: "Muh Almusaeri", role: "User", password: "000000" },
-  { email: "rita.sumardi@jne.co.id", name: "Rita Sumardi", role: "Admin", password: "000000" },
-  { email: "adm.ppdd@jne.co.id", name: "Admin PPDD", role: "Admin", password: "000000" },
+  { email: "agus.permana@jne.co.id", name: "Agus Permana", role: "User", password: "000000" },
+  { email: "rita.sumardi@jne.co.id", name: "Rita Sumardi", role: "User", password: "000000" },
+  { email: "adm.ppdd@jne.co.id", name: "Admin PPDD", role: "User", password: "000000" },
   { email: "davis.gunawan@jne.co.id", name: "Davis Gunawan", role: "Admin", password: "000000" }
 ];
