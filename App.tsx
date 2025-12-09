@@ -162,25 +162,24 @@ function App() {
                         to_name: targetUser.name,
                         to_email: targetUser.email,
                         reset_token: resetToken,
-                        // Pesan yang dikirim ke email
                         message: `Permintaan reset password diterima. Password baru Anda adalah: ${resetToken}. Silakan login dan segera ganti password ini melalui menu profile.`
                     },
                     EMAILJS_PUBLIC_KEY
                 );
                 console.log("Email berhasil dikirim ke " + email);
-                return true;
+                return { success: true, isMock: false };
             } catch (error) {
                 console.error("Gagal mengirim email:", error);
-                alert("Password berhasil direset di database menjadi: " + resetToken + ", namun sistem GAGAL mengirim email. Mohon cek quota atau konfigurasi EmailJS Anda.");
-                return true; // Tetap return true karena password sudah berubah di DB, meski email gagal
+                // Return success but with mock flag so UI can show the password
+                return { success: true, token: resetToken, isMock: true };
             }
         } else {
             console.warn("EmailJS credentials belum dikonfigurasi di constants.ts");
-            alert(`[MODE TEST] EmailJS Keys belum lengkap di constants.ts.\nPassword reset menjadi: ${resetToken}\n(Email tidak terkirim)`);
-            return true;
+            // Return success but with mock flag so UI can show the password
+            return { success: true, token: resetToken, isMock: true };
         }
     }
-    return false;
+    return { success: false };
   };
 
   const handleLogout = () => {
