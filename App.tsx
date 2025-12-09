@@ -168,10 +168,21 @@ function App() {
                 );
                 console.log("Email berhasil dikirim ke " + email);
                 return { success: true, isMock: false };
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Gagal mengirim email:", error);
-                // Return success but with mock flag so UI can show the password
-                return { success: true, token: resetToken, isMock: true };
+                
+                // Ambil pesan error yang bisa dibaca
+                let errorMessage = "Unknown Error";
+                if (typeof error === 'string') {
+                    errorMessage = error;
+                } else if (error.text) {
+                    errorMessage = error.text; // EmailJS biasanya mengembalikan object { status: 4xx, text: "..." }
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                // Return success (karena password sudah direset) tapi dengan flag isMock & error detail
+                return { success: true, token: resetToken, isMock: true, errorMessage: errorMessage };
             }
         } else {
             console.warn("EmailJS credentials belum dikonfigurasi di constants.ts");
