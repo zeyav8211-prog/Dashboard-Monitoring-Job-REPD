@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardSummary } from './components/DashboardSummary';
@@ -134,10 +133,8 @@ function App() {
     const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (targetUser) {
-        // Generate pseudo-random 6 character token for "Real" feel
         const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
         
-        // Update user password immediately in DB
         const updatedUser = { ...targetUser, password: resetToken };
         const updatedUserList = users.map(u => u.email === targetUser.email ? updatedUser : u);
         
@@ -150,18 +147,13 @@ function App() {
         };
         const updatedLogs = [newLog, ...validationLogs];
 
-        // 1. Simpan password baru ke database
         await saveToCloud(jobs, updatedUserList, updatedLogs);
 
-        // 2. Kirim Email menggunakan EmailJS
         if (EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY) {
             try {
-                // Trim keys to avoid copy-paste whitespace errors
                 const serviceId = EMAILJS_SERVICE_ID.trim();
                 const templateId = EMAILJS_TEMPLATE_ID.trim();
                 const publicKey = EMAILJS_PUBLIC_KEY.trim();
-
-                console.log(`[EmailJS] Attempting to send to ${email} via Service: ${serviceId}`);
 
                 await emailjs.send(
                     serviceId,
@@ -169,36 +161,24 @@ function App() {
                     {
                         to_name: targetUser.name,
                         to_email: targetUser.email, 
-                        
-                        // Send variations of variable names to support different template defaults
                         reset_token: resetToken,
                         password: resetToken,
                         otp: resetToken,
-                        message: `Permintaan reset password diterima. Password baru Anda adalah: ${resetToken}. Silakan login dan segera ganti password ini melalui menu profile.`
+                        message: `Permintaan reset password diterima. Password baru Anda adalah: ${resetToken}.`
                     },
                     publicKey
                 );
-                console.log("Email berhasil dikirim ke " + email);
                 return { success: true, isMock: false };
             } catch (error: any) {
                 console.error("Gagal mengirim email:", error);
-                
-                // Ambil pesan error yang bisa dibaca
                 let errorMessage = "Unknown Error";
-                if (typeof error === 'string') {
-                    errorMessage = error;
-                } else if (error.text) {
-                    errorMessage = error.text; // EmailJS biasanya mengembalikan object { status: 4xx, text: "..." }
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
+                if (typeof error === 'string') errorMessage = error;
+                else if (error.text) errorMessage = error.text;
+                else if (error.message) errorMessage = error.message;
 
-                // Return success (karena password sudah direset) tapi dengan flag isMock & error detail
                 return { success: true, token: resetToken, isMock: true, errorMessage: errorMessage };
             }
         } else {
-            console.warn("EmailJS credentials belum dikonfigurasi di constants.ts");
-            // Return success but with mock flag so UI can show the password
             return { success: true, token: resetToken, isMock: true };
         }
     }
@@ -271,8 +251,6 @@ function App() {
   };
 
   const visibleJobs = useMemo(() => {
-    // Agar fungsi Monitoring Dashboard berjalan baik, semua user bisa melihat semua pekerjaan.
-    // Pembatasan hak edit dilakukan di level UI (Tombol Edit disembunyikan).
     return jobs;
   }, [jobs]);
 
@@ -287,6 +265,7 @@ function App() {
   }
 
   const renderContent = () => {
+      // 1. Validasi
       if (activeCategory === 'Validasi') {
           if (activeSubCategory === 'Biaya Validasi') {
              return <TarifValidator category="BIAYA" />;
@@ -294,14 +273,22 @@ function App() {
           return <TarifValidator category="TARIF" />;
       }
 
+      // 2. Kompetitor Analysis
+      // Pastikan activeSubCategory ada sebelum merender komponen
       if (activeCategory === 'Kompetitor' && activeSubCategory) {
           return <CompetitorAnalysis subCategory={activeSubCategory} />;
       }
       
-      if (!activeCategory) {
+      // 3. Dashboard Summary (Home atau Report Surat Summary)
+      if (!activeCategory || (activeCategory === 'Report Surat' && activeSubCategory === 'Summary')) {
+          const isReportSuratSummary = activeCategory === 'Report Surat';
+          const filteredJobs = isReportSuratSummary 
+              ? visibleJobs.filter(j => j.category === 'Report Surat')
+              : visibleJobs;
+              
           return (
             <DashboardSummary 
-                jobs={visibleJobs} 
+                jobs={filteredJobs} 
                 onBulkAddJobs={handleBulkAdd}
                 onUpdateJob={handleUpdateJob}
                 isLoading={isLoading}
@@ -309,28 +296,12 @@ function App() {
                 lastUpdated={lastUpdated}
                 connectionError={connectionError}
                 currentUser={currentUser}
+                customTitle={isReportSuratSummary ? "Summary Report Surat" : undefined}
             />
           );
       }
 
-      // Handle "Report Surat" Summary View
-      if (activeCategory === 'Report Surat' && activeSubCategory === 'Summary') {
-          const suratJobs = visibleJobs.filter(j => j.category === 'Report Surat');
-          return (
-            <DashboardSummary 
-                jobs={suratJobs} 
-                onBulkAddJobs={handleBulkAdd}
-                onUpdateJob={handleUpdateJob}
-                isLoading={isLoading}
-                isSaving={isSaving}
-                lastUpdated={lastUpdated}
-                connectionError={connectionError}
-                currentUser={currentUser}
-                customTitle="Summary Report Surat"
-            />
-          );
-      }
-
+      // 4. Job Manager (Default List View)
       if (activeSubCategory) {
           return (
             <JobManager 
