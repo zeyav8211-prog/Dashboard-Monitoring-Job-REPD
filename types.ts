@@ -1,4 +1,5 @@
 
+
 export type Status = 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Hold' | 'Cancel';
 
 export interface Job {
@@ -7,17 +8,46 @@ export interface Job {
   subCategory: string;
   dateInput: string;
   branchDept: string;
-  jobType: string;
+  jobType: string; // Acts as "Nama Pekerjaan", "Subject Email", or "Deskripsi" depending on context
   status: Status;
   deadline: string;
   activationDate?: string;
   keterangan?: string;
   notes?: string;
   createdBy?: string;
+  
   // Checklist Fields for Penyesuaian
   isCabangConfirmed?: boolean;
   isDisposition?: boolean;
   isApproved?: boolean;
+
+  // Fields for Email Masuk
+  picUser?: string;
+  jenisPengajuan?: string;
+  tanggalUpdate?: string; // Tgl Update Progress
+  picRepd?: string;
+
+  // Fields for Disposisi
+  noDisposisi?: string;
+  klasifikasi?: string;
+  // Disposisi Approvals
+  approveHeadDept?: boolean;
+  approveHeadDiv?: boolean;
+  approveRegional?: boolean;
+  approveVP?: boolean;
+  approveBOD?: boolean;
+  // Disposisi/Memo Documents
+  docSoftCopy?: boolean;
+  docLampiran?: boolean;
+  docHardCopy?: boolean;
+
+  // Fields for Internal Memo
+  noInternalMemo?: string;
+  linkAktifasi?: string; // Text input for link
+  hasLinkAktifasi?: boolean; // Checkbox for Link Aktifasi
+  // Internal Memo Socialization
+  sosialisasiCabang?: boolean;
+  sosialisasiIT?: boolean;
 }
 
 export interface MenuItem {
