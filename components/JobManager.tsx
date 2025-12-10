@@ -227,8 +227,20 @@ export const JobManager: React.FC<JobManagerProps> = ({
     if (status === 'Hold') return 'bg-purple-100 text-purple-800 border-purple-200';
     if (status === 'Cancel') return 'bg-gray-200 text-gray-800 border-gray-300';
 
-    const isOverdue = new Date() > new Date(deadline) && status !== 'Completed';
-    if (isOverdue) return 'bg-red-100 text-red-800 border-red-200';
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const d = new Date(deadline);
+    d.setHours(0,0,0,0);
+
+    // Overdue
+    if (d < today && status !== 'Completed') return 'bg-red-100 text-red-800 border-red-200';
+    
+    // Warning H-1 (Today or Tomorrow)
+    const diffTime = d.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays >= 0 && diffDays <= 1 && status !== 'Completed') {
+        return 'bg-orange-100 text-orange-800 border-orange-200 font-bold';
+    }
     
     switch (status) {
       case 'Completed': return 'bg-green-100 text-green-800 border-green-200';
