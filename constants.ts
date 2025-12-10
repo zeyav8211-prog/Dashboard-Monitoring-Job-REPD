@@ -25,6 +25,10 @@ export const MENU_STRUCTURE: MenuStructure = {
   "Validasi": {
     name: "Validasi",
     submenus: ["Tarif Otomatis", "Biaya Validasi"]
+  },
+  "Kompetitor": {
+    name: "Kompetitor",
+    submenus: ["Summary", "Form Kompetitor"]
   }
 };
 
