@@ -141,3 +141,36 @@ export interface ValidationHistoryItem {
     result: ValidationResult;
     category: ValidationCategory;
 }
+
+// Competitor Analysis Types
+export interface CompetitorRow {
+    id: string;
+    // Origin Info
+    kodingOrigin: string;
+    origin: string;
+    destinasi: string;
+    provinsi: string;
+    kabKota: string;
+    kecamatan: string;
+    regional: string;
+
+    // REGULAR
+    jneRegPrice: number;
+    jneRegSla: string;
+    jntRegPrice: number;
+    jntRegSla: string;
+    lionRegPrice: number;
+    lionRegSla: string;
+    sicepatRegPrice: number;
+    sicepatRegSla: string;
+
+    // TRUCKING/CARGO
+    jneTruckPrice: number;
+    jneTruckSla: string;
+    jntTruckPrice: number;
+    jntTruckSla: string;
+    lionTruckPrice: number;
+    lionTruckSla: string;
+    wahanaTruckPrice: number;
+    wahanaTruckSla: string;
+}
