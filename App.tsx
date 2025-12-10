@@ -5,6 +5,7 @@ import { DashboardSummary } from './components/DashboardSummary';
 import { JobManager } from './components/JobManager';
 import { Login } from './components/Login';
 import { TarifValidator } from './components/TarifValidator';
+import { CompetitorAnalysis } from './components/CompetitorAnalysis';
 import { Job, User, ValidationLog } from './types';
 import { AUTHORIZED_USERS, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY } from './constants';
 import { api } from './services/api';
@@ -291,6 +292,10 @@ function App() {
              return <TarifValidator category="BIAYA" />;
           }
           return <TarifValidator category="TARIF" />;
+      }
+
+      if (activeCategory === 'Kompetitor' && activeSubCategory) {
+          return <CompetitorAnalysis subCategory={activeSubCategory} />;
       }
       
       if (!activeCategory) {
