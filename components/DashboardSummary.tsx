@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid 
 } from 'recharts';
-import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle, Tag, MapPin, X, CheckSquare, FileText, Calendar, User as UserIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle, Tag, MapPin, X, CheckSquare, FileText, Calendar, User as UserIcon, AlertTriangle } from 'lucide-react';
 
 interface DashboardSummaryProps {
   jobs: Job[];
@@ -50,10 +50,29 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     // Cancelled and Hold jobs are usually not considered "Overdue" in the traditional sense
     const overdueJobs = jobs.filter(j => {
       const deadline = new Date(j.deadline);
+      deadline.setHours(0, 0, 0, 0);
       return deadline < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold';
     });
 
-    return { total, completed, pending, inProgress, hold, cancel, overdue: overdueJobs.length, overdueList: overdueJobs };
+    // Warning Jobs: Deadline is Today (H-0) or Tomorrow (H-1)
+    const warningJobs = jobs.filter(j => {
+        if (j.status === 'Completed' || j.status === 'Cancel' || j.status === 'Hold') return false;
+        
+        const deadline = new Date(j.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        
+        const diffTime = deadline.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Return true if diffDays is 0 (Today) or 1 (Tomorrow/H-1)
+        return diffDays >= 0 && diffDays <= 1;
+    });
+
+    return { 
+        total, completed, pending, inProgress, hold, cancel, 
+        overdue: overdueJobs.length, overdueList: overdueJobs,
+        warning: warningJobs.length, warningList: warningJobs
+    };
   }, [jobs]);
 
   const pieData = [
@@ -151,13 +170,27 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     if (!filterStatus) return [];
     
     let result = jobs;
+    const today = new Date();
+    today.setHours(0,0,0,0);
 
     if (filterStatus === 'Total') {
         result = jobs;
     } else if (filterStatus === 'Overdue') {
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        result = jobs.filter(j => new Date(j.deadline) < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold');
+        result = jobs.filter(j => {
+            const d = new Date(j.deadline);
+            d.setHours(0,0,0,0);
+            return d < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold';
+        });
+    } else if (filterStatus === 'Warning') {
+        // H-1 Logic Filter
+        result = jobs.filter(j => {
+             if (j.status === 'Completed' || j.status === 'Cancel' || j.status === 'Hold') return false;
+             const deadline = new Date(j.deadline);
+             deadline.setHours(0,0,0,0);
+             const diffTime = deadline.getTime() - today.getTime();
+             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+             return diffDays >= 0 && diffDays <= 1;
+        });
     } else if (filterStatus === 'In Progress') {
         result = jobs.filter(j => j.status === 'In Progress' || j.status === 'Pending');
     } else if (Object.keys(MENU_STRUCTURE).includes(filterStatus)) {
@@ -183,8 +216,20 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     if (status === 'Hold') return 'bg-purple-100 text-purple-800 border-purple-200';
     if (status === 'Cancel') return 'bg-gray-200 text-gray-800 border-gray-300';
     
-    const isOverdue = new Date() > new Date(deadline) && status !== 'Completed';
-    if (isOverdue) return 'bg-red-100 text-red-800 border-red-200';
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const d = new Date(deadline);
+    d.setHours(0,0,0,0);
+
+    // Overdue
+    if (d < today && status !== 'Completed') return 'bg-red-100 text-red-800 border-red-200';
+    
+    // Warning H-1 (Today or Tomorrow)
+    const diffTime = d.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays >= 0 && diffDays <= 1 && status !== 'Completed') {
+        return 'bg-orange-100 text-orange-800 border-orange-200 font-bold';
+    }
     
     switch (status) {
       case 'Completed': return 'bg-green-100 text-green-800 border-green-200';
@@ -204,6 +249,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
 
   const getFilterTitle = () => {
       if (filterStatus === 'In Progress') return 'Dalam Proses & Pending';
+      if (filterStatus === 'Warning') return 'Mendekati Deadline (H-1)';
       if (Object.keys(MENU_STRUCTURE).includes(filterStatus || '')) return `Kategori: ${filterStatus}`;
       return filterStatus;
   }
@@ -503,20 +549,38 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         </div>
       </div>
 
-      {stats.overdue > 0 && (
-        <div 
-            onClick={() => setFilterStatus('Overdue')}
-            className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start animate-pulse shadow-sm cursor-pointer hover:bg-red-100 transition-colors"
-        >
-          <AlertCircle className="w-6 h-6 text-red-600 mr-3 mt-0.5" />
-          <div className="flex-1">
-            <h4 className="text-red-800 font-bold text-lg">PERHATIAN: {stats.overdue} Pekerjaan Melewati Deadline!</h4>
-            <p className="text-red-700 mt-1">
-              Mohon segera selesaikan pekerjaan yang tertunda. Klik disini untuk melihat detail.
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Notifications Area */}
+      <div className="space-y-3">
+        {stats.overdue > 0 && (
+            <div 
+                onClick={() => setFilterStatus('Overdue')}
+                className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start animate-pulse shadow-sm cursor-pointer hover:bg-red-100 transition-colors"
+            >
+            <AlertCircle className="w-6 h-6 text-red-600 mr-3 mt-0.5" />
+            <div className="flex-1">
+                <h4 className="text-red-800 font-bold text-lg">PERHATIAN: {stats.overdue} Pekerjaan Melewati Deadline!</h4>
+                <p className="text-red-700 mt-1">
+                Mohon segera selesaikan pekerjaan yang tertunda. Klik disini untuk melihat detail.
+                </p>
+            </div>
+            </div>
+        )}
+
+        {stats.warning > 0 && (
+             <div 
+                onClick={() => setFilterStatus('Warning')}
+                className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-md flex items-start shadow-sm cursor-pointer hover:bg-orange-100 transition-colors"
+            >
+            <AlertTriangle className="w-6 h-6 text-orange-500 mr-3 mt-0.5" />
+            <div className="flex-1">
+                <h4 className="text-orange-800 font-bold text-lg">WARNING: {stats.warning} Pekerjaan Deadline H-1 (Segera Habis)</h4>
+                <p className="text-orange-700 mt-1">
+                Pekerjaan ini akan habis waktu deadlinenya hari ini atau besok. Klik untuk melihat detail.
+                </p>
+            </div>
+            </div>
+        )}
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
