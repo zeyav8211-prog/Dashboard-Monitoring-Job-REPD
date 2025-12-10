@@ -130,7 +130,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 status: validStatus,
                 deadline: cols[6]?.trim() || new Date().toISOString().split('T')[0],
                 keterangan: cols[7]?.trim() || '',
-                activationDate: undefined 
+                activationDate: undefined,
+                createdBy: currentUser.email // Set owner to current user
             });
         }
       }
