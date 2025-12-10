@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardSummary } from './components/DashboardSummary';
@@ -274,7 +275,6 @@ function App() {
       }
 
       // 2. Kompetitor Analysis
-      // Pastikan activeSubCategory ada sebelum merender komponen
       if (activeCategory === 'Kompetitor' && activeSubCategory) {
           return <CompetitorAnalysis subCategory={activeSubCategory} />;
       }
