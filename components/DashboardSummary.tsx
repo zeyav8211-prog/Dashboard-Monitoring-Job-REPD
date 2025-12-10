@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef } from 'react';
 import { Job, Status, User } from '../types';
 import { MENU_STRUCTURE } from '../constants';
@@ -16,6 +17,7 @@ interface DashboardSummaryProps {
   connectionError?: boolean;
   lastUpdated?: Date | null;
   currentUser: User;
+  customTitle?: string;
 }
 
 // Updated Colors: Added Purple for Hold and Gray for Cancel
@@ -29,7 +31,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     isSaving = false,
     connectionError = false,
     lastUpdated = null,
-    currentUser
+    currentUser,
+    customTitle
 }) => {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -327,13 +330,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                         <td className="p-4">{job.jobType}</td>
                                         <td className="p-4 italic text-gray-500" title={job.keterangan}>
                                             {formatKeterangan(job.keterangan)}
-                                             {job.category === 'Penyesuaian' && (job.isCabangConfirmed || job.isDisposition || job.isApproved) && (
-                                                <div className="flex gap-1 mt-1">
-                                                    {job.isCabangConfirmed && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200">K. Cabang</span>}
-                                                    {job.isDisposition && <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded border border-indigo-200">Disposisi</span>}
-                                                    {job.isApproved && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded border border-green-200 font-bold">Approved</span>}
-                                                </div>
-                                            )}
                                         </td>
                                         <td className="p-4">
                                             <select 
@@ -421,30 +417,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                 </div>
                             </div>
 
-                            {/* Checkboxes for Penyesuaian */}
-                            {selectedJob.category === 'Penyesuaian' && (
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className={`p-3 rounded-lg border flex flex-col items-center justify-center text-center gap-2 ${selectedJob.isCabangConfirmed ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedJob.isCabangConfirmed ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
-                                            {selectedJob.isCabangConfirmed && <CheckSquare className="w-3.5 h-3.5" />}
-                                        </div>
-                                        <span className="text-xs font-semibold">Konfirmasi Cabang</span>
-                                    </div>
-                                    <div className={`p-3 rounded-lg border flex flex-col items-center justify-center text-center gap-2 ${selectedJob.isDisposition ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedJob.isDisposition ? 'bg-indigo-600 text-white' : 'bg-gray-200'}`}>
-                                            {selectedJob.isDisposition && <CheckSquare className="w-3.5 h-3.5" />}
-                                        </div>
-                                        <span className="text-xs font-semibold">Disposisi</span>
-                                    </div>
-                                    <div className={`p-3 rounded-lg border flex flex-col items-center justify-center text-center gap-2 ${selectedJob.isApproved ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedJob.isApproved ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
-                                            {selectedJob.isApproved && <CheckSquare className="w-3.5 h-3.5" />}
-                                        </div>
-                                        <span className="text-xs font-semibold">Approved</span>
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Description */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
@@ -468,22 +440,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                                     <span className="block text-gray-400 mb-1 flex items-center gap-1"><UserIcon className="w-3 h-3" /> Dibuat Oleh</span>
                                     <span className="font-medium text-gray-700">{selectedJob.createdBy || 'Unknown'}</span>
                                 </div>
-                                {selectedJob.activationDate && (
-                                    <div className="col-span-2 mt-2">
-                                        <span className="block text-gray-400 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Tanggal Aktifasi</span>
-                                        <span className="font-medium text-gray-700">
-                                            {new Date(selectedJob.activationDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        </span>
-                                    </div>
-                                )}
                             </div>
                         </div>
-                        
-                        {!canEditJob(selectedJob) && (
-                            <div className="p-4 bg-gray-50 border-t border-gray-100 text-center">
-                                <p className="text-xs text-gray-400 italic">Anda hanya dapat melihat data ini (Edit terbatas pada pembuat/admin)</p>
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
@@ -496,7 +454,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 mb-6">
         <div>
             <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-800">Dashboard Monitoring Pekerjaan</h1>
+                <h1 className="text-2xl font-bold text-gray-800">{customTitle || "Dashboard Monitoring Pekerjaan"}</h1>
                 <div className={`flex items-center px-2 py-1 rounded text-xs border ${connectionError ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                     {connectionError ? (
                         <>
