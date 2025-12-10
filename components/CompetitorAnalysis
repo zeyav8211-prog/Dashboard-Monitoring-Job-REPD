@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useMemo } from 'react';
 import { Upload, Download, Search, RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart3, AlertCircle, FileDown, ArrowLeft, MapPin } from 'lucide-react';
 import { CompetitorRow } from '../types';
