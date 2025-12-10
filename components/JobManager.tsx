@@ -203,13 +203,25 @@ export const JobManager: React.FC<JobManagerProps> = ({
     reader.readAsText(file);
   };
 
-  const filteredJobs = jobs.filter(j => 
-    j.category === category && 
-    j.subCategory === subCategory &&
-    (j.branchDept.toLowerCase().includes(searchTerm.toLowerCase()) || 
-     j.jobType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     (j.keterangan && j.keterangan.toLowerCase().includes(searchTerm.toLowerCase())))
-  );
+  const filteredJobs = jobs.filter(j => {
+    // 1. Filter Kategori Menu
+    if (j.category !== category || j.subCategory !== subCategory) return false;
+
+    // 2. Filter Hak Akses (Hanya bisa dilihat oleh masing-masing akun saja)
+    if (j.createdBy !== currentUser.email) return false;
+
+    // 3. Filter Pencarian
+    if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        return (
+            j.branchDept.toLowerCase().includes(lowerTerm) || 
+            j.jobType.toLowerCase().includes(lowerTerm) ||
+            (j.keterangan && j.keterangan.toLowerCase().includes(lowerTerm))
+        );
+    }
+
+    return true;
+  });
 
   const getStatusColor = (status: Status, deadline: string) => {
     if (status === 'Hold') return 'bg-purple-100 text-purple-800 border-purple-200';
@@ -251,7 +263,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
             <span className="mx-2">/</span>
             <span className="font-medium text-gray-900">{subCategory}</span>
           </div>
-          <h2 className="text-xl font-bold text-gray-800">Daftar Pekerjaan</h2>
+          <h2 className="text-xl font-bold text-gray-800">Daftar Pekerjaan (Saya)</h2>
         </div>
         
         <div className="flex flex-wrap gap-2 w-full xl:w-auto">
@@ -482,7 +494,9 @@ export const JobManager: React.FC<JobManagerProps> = ({
                   {filteredJobs.length === 0 ? (
                     <tr>
                       <td colSpan={isProductionMaster ? 9 : 8} className="p-8 text-center text-gray-400">
-                        Belum ada data pekerjaan. Gunakan tombol "Import Excel/CSV" atau "Tambah Manual".
+                        {currentUser.role === 'Admin' 
+                            ? 'Belum ada data pekerjaan Anda. Gunakan tombol "Import Excel/CSV" atau "Tambah Manual".'
+                            : 'Anda belum memiliki data pekerjaan di kategori ini.'}
                       </td>
                     </tr>
                   ) : (
