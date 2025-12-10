@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { DashboardSummary } from './components/DashboardSummary';
@@ -303,6 +304,24 @@ function App() {
                 lastUpdated={lastUpdated}
                 connectionError={connectionError}
                 currentUser={currentUser}
+            />
+          );
+      }
+
+      // Handle "Report Surat" Summary View
+      if (activeCategory === 'Report Surat' && activeSubCategory === 'Summary') {
+          const suratJobs = visibleJobs.filter(j => j.category === 'Report Surat');
+          return (
+            <DashboardSummary 
+                jobs={suratJobs} 
+                onBulkAddJobs={handleBulkAdd}
+                onUpdateJob={handleUpdateJob}
+                isLoading={isLoading}
+                isSaving={isSaving}
+                lastUpdated={lastUpdated}
+                connectionError={connectionError}
+                currentUser={currentUser}
+                customTitle="Summary Report Surat"
             />
           );
       }
