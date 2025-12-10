@@ -1,0 +1,583 @@
+
+import React, { useState, useRef, useMemo } from 'react';
+import { Upload, Download, Search, RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart3, AlertCircle, FileDown, ArrowLeft, MapPin } from 'lucide-react';
+import { CompetitorRow } from '../types';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell 
+} from 'recharts';
+
+interface CompetitorAnalysisProps {
+    subCategory: string;
+}
+
+export const CompetitorAnalysis: React.FC<CompetitorAnalysisProps> = ({ subCategory }) => {
+    const [rows, setRows] = useState<CompetitorRow[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [selectedRegional, setSelectedRegional] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Mock initial data if empty (for demonstration)
+    const handleSimulateAutoSearch = () => {
+        setIsLoading(true);
+        setTimeout(() => {
+            const mockData: CompetitorRow[] = [
+                {
+                    id: '1', kodingOrigin: 'CGK10000', origin: 'JAKARTA', destinasi: 'AMI10000', provinsi: 'Nusa Tenggara', kabKota: 'Mataram', kecamatan: 'AMPENAN', regional: 'BNN',
+                    jneRegPrice: 23000, jneRegSla: '3-5', jntRegPrice: 20000, jntRegSla: '2-7', lionRegPrice: 19500, lionRegSla: '3-6', sicepatRegPrice: 21500, sicepatRegSla: '3-5',
+                    jneTruckPrice: 90000, jneTruckSla: '4-5', jntTruckPrice: 0, jntTruckSla: '-', lionTruckPrice: 110000, lionTruckSla: '5-7', wahanaTruckPrice: 50000, wahanaTruckSla: '7-10'
+                },
+                {
+                    id: '2', kodingOrigin: 'CGK10000', origin: 'JAKARTA', destinasi: 'DPS10000', provinsi: 'Bali', kabKota: 'Denpasar', kecamatan: 'DENPASAR SELATAN', regional: 'BNN',
+                    jneRegPrice: 21000, jneRegSla: '3-5', jntRegPrice: 22000, jntRegSla: '2-7', lionRegPrice: 20000, lionRegSla: '3-5', sicepatRegPrice: 21500, sicepatRegSla: '3-4',
+                    jneTruckPrice: 70000, jneTruckSla: '3-4', jntTruckPrice: 96000, jntTruckSla: '3-5', lionTruckPrice: 80000, lionTruckSla: '4-6', wahanaTruckPrice: 50000, wahanaTruckSla: '5-8'
+                },
+                {
+                    id: '3', kodingOrigin: 'CGK10000', origin: 'JAKARTA', destinasi: 'BDO10000', provinsi: 'Jawa Barat', kabKota: 'Bandung', kecamatan: 'ANTAPANI', regional: 'Jawaan',
+                    jneRegPrice: 11000, jneRegSla: '1-2', jntRegPrice: 10000, jntRegSla: '2-3', lionRegPrice: 9000, lionRegSla: '2-4', sicepatRegPrice: 10000, sicepatRegSla: '1-2',
+                    jneTruckPrice: 30000, jneTruckSla: '2-3', jntTruckPrice: 0, jntTruckSla: '-', lionTruckPrice: 35000, lionTruckSla: '3-4', wahanaTruckPrice: 25000, wahanaTruckSla: '3-5'
+                },
+                {
+                    id: '4', kodingOrigin: 'CGK10000', origin: 'JAKARTA', destinasi: 'SUB10000', provinsi: 'Jawa Timur', kabKota: 'Surabaya', kecamatan: 'GUBENG', regional: 'Jawaan',
+                    jneRegPrice: 19000, jneRegSla: '1-2', jntRegPrice: 18000, jntRegSla: '1-2', lionRegPrice: 16000, lionRegSla: '2-3', sicepatRegPrice: 17000, sicepatRegSla: '1-2',
+                    jneTruckPrice: 45000, jneTruckSla: '2-3', jntTruckPrice: 0, jntTruckSla: '-', lionTruckPrice: 40000, lionTruckSla: '3-4', wahanaTruckPrice: 30000, wahanaTruckSla: '3-5'
+                }
+            ];
+            setRows(mockData);
+            setIsLoading(false);
+            alert("Simulasi Auto-Search Selesai: Data dari website kompetitor berhasil ditarik (Mock Data).");
+        }, 2000);
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            const lines = text.split(/\r\n|\n/);
+            const newRows: CompetitorRow[] = [];
+            
+            // Skip headers (assume row 1 is headers)
+            for(let i=1; i<lines.length; i++) {
+                const line = lines[i];
+                if (!line.trim()) continue;
+                const cols = line.split(/,|;/);
+                
+                // Simple parsing assumption mapping strictly to columns
+                if (cols.length > 5) {
+                    newRows.push({
+                        id: crypto.randomUUID(),
+                        kodingOrigin: cols[0] || '', origin: cols[1] || '', destinasi: cols[2] || '', provinsi: cols[3] || '', kabKota: cols[4] || '', kecamatan: cols[5] || '', regional: cols[6] || '',
+                        // Regular
+                        jneRegPrice: Number(cols[7]) || 0, jneRegSla: cols[8] || '',
+                        jntRegPrice: Number(cols[9]) || 0, jntRegSla: cols[10] || '',
+                        lionRegPrice: Number(cols[11]) || 0, lionRegSla: cols[12] || '',
+                        sicepatRegPrice: Number(cols[13]) || 0, sicepatRegSla: cols[14] || '',
+                        // Trucking
+                        jneTruckPrice: Number(cols[15]) || 0, jneTruckSla: cols[16] || '',
+                        jntTruckPrice: Number(cols[17]) || 0, jntTruckSla: cols[18] || '',
+                        lionTruckPrice: Number(cols[19]) || 0, lionTruckSla: cols[20] || '',
+                        wahanaTruckPrice: Number(cols[21]) || 0, wahanaTruckSla: cols[22] || '',
+                    });
+                }
+            }
+            setRows(newRows);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        };
+        reader.readAsText(file);
+    };
+
+    const downloadTemplate = () => {
+        const header = "KODING_ORIGIN,ORIGIN,DESTINASI,PROVINSI,KAB_KOTA,KECAMATAN,REGIONAL,JNE_REG_PRICE,JNE_REG_SLA,JNT_REG_PRICE,JNT_REG_SLA,LION_REG_PRICE,LION_REG_SLA,SICEPAT_REG_PRICE,SICEPAT_REG_SLA,JNE_TRUCK_PRICE,JNE_TRUCK_SLA,JNT_TRUCK_PRICE,JNT_TRUCK_SLA,LION_TRUCK_PRICE,LION_TRUCK_SLA,WAHANA_TRUCK_PRICE,WAHANA_TRUCK_SLA";
+        const sample = "CGK10000,JAKARTA,AMI10000,Nusa Tenggara,Mataram,AMPENAN,BNN,23000,3-5,20000,2-7,19500,2-7,21500,,90000,4-5,,,,,50000,";
+        const content = header + "\n" + sample;
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "Template_Kompetitor.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    const handleDownloadResults = () => {
+        if (rows.length === 0) {
+            alert("Tidak ada data untuk didownload.");
+            return;
+        }
+
+        const header = [
+            "KODING_ORIGIN","ORIGIN","DESTINASI","PROVINSI","KAB_KOTA","KECAMATAN","REGIONAL",
+            "JNE_REG_PRICE","JNE_REG_SLA","JNT_REG_PRICE","JNT_REG_SLA","LION_REG_PRICE","LION_REG_SLA","SICEPAT_REG_PRICE","SICEPAT_REG_SLA",
+            "JNE_TRUCK_PRICE","JNE_TRUCK_SLA","JNT_TRUCK_PRICE","JNT_TRUCK_SLA","LION_TRUCK_PRICE","LION_TRUCK_SLA","WAHANA_TRUCK_PRICE","WAHANA_TRUCK_SLA"
+        ].join(",");
+
+        const body = rows.map(r => [
+            r.kodingOrigin, r.origin, r.destinasi, r.provinsi, r.kabKota, r.kecamatan, r.regional,
+            r.jneRegPrice, r.jneRegSla,
+            r.jntRegPrice, r.jntRegSla,
+            r.lionRegPrice, r.lionRegSla,
+            r.sicepatRegPrice, r.sicepatRegSla,
+            r.jneTruckPrice, r.jneTruckSla,
+            r.jntTruckPrice, r.jntTruckSla,
+            r.lionTruckPrice, r.lionTruckSla,
+            r.wahanaTruckPrice, r.wahanaTruckSla
+        ].join(",")).join("\n");
+
+        const content = header + "\n" + body;
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Hasil_Kompetitor_Analysis_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    // Calculate Summary Data
+    const summaryData = useMemo(() => {
+        const regionalMap = new Map<string, { 
+            count: number, 
+            jneCheaperCount: number, 
+            avgDiffJnt: number, 
+            avgDiffLion: number, 
+            avgDiffSicepat: number 
+        }>();
+
+        rows.forEach(row => {
+            if (!row.regional) return;
+            
+            const current = regionalMap.get(row.regional) || { count: 0, jneCheaperCount: 0, avgDiffJnt: 0, avgDiffLion: 0, avgDiffSicepat: 0 };
+            
+            current.count++;
+            
+            const jne = row.jneRegPrice;
+            if (jne > 0) {
+                // Percentage diff: (Competitor - JNE) / JNE * 100
+                // POSITIVE: Competitor is expensive (JNE is Cheaper) -> Good
+                // NEGATIVE: Competitor is cheaper (JNE is Expensive) -> Bad
+                if (row.jntRegPrice > 0) current.avgDiffJnt += ((row.jntRegPrice - jne) / jne) * 100;
+                if (row.lionRegPrice > 0) current.avgDiffLion += ((row.lionRegPrice - jne) / jne) * 100;
+                if (row.sicepatRegPrice > 0) current.avgDiffSicepat += ((row.sicepatRegPrice - jne) / jne) * 100;
+                
+                // Simple Count if JNE is cheapest among valid prices
+                const validCompetitors = [row.jntRegPrice, row.lionRegPrice, row.sicepatRegPrice].filter(p => p > 0);
+                // If JNE price is less than or equal to the minimum of competitors
+                if (validCompetitors.length > 0 && jne <= Math.min(...validCompetitors)) {
+                    current.jneCheaperCount++;
+                }
+            }
+
+            regionalMap.set(row.regional, current);
+        });
+
+        const result: any[] = [];
+        regionalMap.forEach((val, key) => {
+            result.push({
+                regional: key,
+                total: val.count,
+                winRate: Math.round((val.jneCheaperCount / val.count) * 100),
+                avgDiffJnt: val.count ? parseFloat((val.avgDiffJnt / val.count).toFixed(1)) : 0,
+                avgDiffLion: val.count ? parseFloat((val.avgDiffLion / val.count).toFixed(1)) : 0,
+                avgDiffSicepat: val.count ? parseFloat((val.avgDiffSicepat / val.count).toFixed(1)) : 0,
+            });
+        });
+        return result;
+    }, [rows]);
+
+    // Detail Data (Drill Down by Regional)
+    const districtDetails = useMemo(() => {
+        if (!selectedRegional) return [];
+
+        return rows
+            .filter(r => r.regional === selectedRegional)
+            .map(r => {
+                const jne = r.jneRegPrice || 1; // Prevent div by zero
+                const diffJnt = r.jntRegPrice > 0 ? ((r.jntRegPrice - jne) / jne) * 100 : null;
+                const diffLion = r.lionRegPrice > 0 ? ((r.lionRegPrice - jne) / jne) * 100 : null;
+                const diffSicepat = r.sicepatRegPrice > 0 ? ((r.sicepatRegPrice - jne) / jne) * 100 : null;
+
+                return {
+                    ...r,
+                    diffJnt,
+                    diffLion,
+                    diffSicepat
+                };
+            })
+            .sort((a, b) => a.kecamatan.localeCompare(b.kecamatan));
+    }, [rows, selectedRegional]);
+
+    const formatCurrency = (val: number) => {
+        if (!val) return '-';
+        return val.toLocaleString('id-ID');
+    };
+
+    const formatDiff = (diff: number | null) => {
+        if (diff === null) return <span className="text-gray-400">-</span>;
+        const isPositive = diff >= 0; // Competitor more expensive (Good for JNE)
+        const isNegative = diff < 0; // Competitor cheaper (Bad for JNE)
+        
+        return (
+            <div className={`flex items-center text-xs font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                {isPositive ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                {Math.abs(diff).toFixed(1)}% {isPositive ? 'Lbh Mahal' : 'Lbh Murah'}
+            </div>
+        );
+    };
+
+    if (subCategory === "Summary") {
+        if (selectedRegional) {
+            return (
+                <div className="space-y-6">
+                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-4 mb-6">
+                            <button 
+                                onClick={() => setSelectedRegional(null)}
+                                className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                            >
+                                <ArrowLeft className="w-6 h-6" />
+                            </button>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">Detail Wilayah: <span className="text-[#002F6C]">{selectedRegional}</span></h2>
+                                <p className="text-gray-500 text-sm">Perbandingan harga per kecamatan terhadap kompetitor.</p>
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-lg border border-gray-200">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 text-gray-700 font-bold">
+                                    <tr>
+                                        <th className="p-4 border-b border-gray-200">Kecamatan</th>
+                                        <th className="p-4 border-b border-gray-200 bg-blue-50 text-blue-800">Tarif JNE (Acuan)</th>
+                                        <th className="p-4 border-b border-gray-200">vs J&T</th>
+                                        <th className="p-4 border-b border-gray-200">vs Lion Parcel</th>
+                                        <th className="p-4 border-b border-gray-200">vs Sicepat</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {districtDetails.map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-blue-50 transition">
+                                            <td className="p-4 font-medium flex items-center gap-2">
+                                                <MapPin className="w-3 h-3 text-gray-400" />
+                                                {item.kecamatan}, {item.kabKota}
+                                            </td>
+                                            <td className="p-4 font-bold text-blue-800 bg-blue-50/50">
+                                                Rp {formatCurrency(item.jneRegPrice)}
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-gray-800 font-medium">Rp {formatCurrency(item.jntRegPrice)}</span>
+                                                    {formatDiff(item.diffJnt)}
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-gray-800 font-medium">Rp {formatCurrency(item.lionRegPrice)}</span>
+                                                    {formatDiff(item.diffLion)}
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                 <div className="flex flex-col">
+                                                    <span className="text-gray-800 font-medium">Rp {formatCurrency(item.sicepatRegPrice)}</span>
+                                                    {formatDiff(item.diffSicepat)}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                     </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Summary Perbandingan Tarif & SLA</h2>
+                    <p className="text-gray-500 text-sm">Analisis rata-rata selisih harga JNE (REG) dibandingkan kompetitor per Regional.</p>
+                    
+                    {rows.length === 0 ? (
+                        <div className="mt-8 text-center p-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                            <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500">Belum ada data kompetitor.</p>
+                            <p className="text-xs text-gray-400 mt-1">Silakan input data di menu "Form Kompetitor".</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* CHARTS SECTION */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                                {/* Win Rate Chart */}
+                                <div className="bg-white p-4 border border-gray-200 rounded-xl shadow-sm">
+                                    <h3 className="font-bold text-gray-700 mb-4 flex items-center">
+                                        <BarChart3 className="w-4 h-4 mr-2 text-green-600" />
+                                        JNE Win Rate (% Rute Lebih Murah)
+                                    </h3>
+                                    <div className="h-64">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={summaryData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                <XAxis type="number" domain={[0, 100]} />
+                                                <YAxis dataKey="regional" type="category" width={80} style={{ fontSize: '11px', fontWeight: 'bold' }} />
+                                                <Tooltip formatter={(value) => `${value}%`} />
+                                                <Bar dataKey="winRate" fill="#4ADE80" radius={[0, 4, 4, 0]} name="Win Rate" barSize={20}>
+                                                    {summaryData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.winRate > 50 ? '#22c55e' : '#ef4444'} />
+                                                    ))}
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Price Gap Chart */}
+                                <div className="bg-white p-4 border border-gray-200 rounded-xl shadow-sm">
+                                    <h3 className="font-bold text-gray-700 mb-4 flex items-center">
+                                        <DollarSign className="w-4 h-4 mr-2 text-blue-600" />
+                                        Gap Harga Rata-rata (%)
+                                        <span className="text-xs font-normal text-gray-400 ml-2">(Positif = Kompetitor Lebih Mahal)</span>
+                                    </h3>
+                                    <div className="h-64">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={summaryData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="regional" style={{ fontSize: '10px' }} />
+                                                <YAxis label={{ value: '% Diff', angle: -90, position: 'insideLeft' }} />
+                                                <Tooltip />
+                                                <Legend />
+                                                <ReferenceLine y={0} stroke="#000" />
+                                                <Bar dataKey="avgDiffJnt" name="vs J&T" fill="#FF9F1C" />
+                                                <Bar dataKey="avgDiffLion" name="vs Lion" fill="#E71D36" />
+                                                <Bar dataKey="avgDiffSicepat" name="vs Sicepat" fill="#8884d8" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* DETAILED CARDS */}
+                            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {summaryData.map((data) => (
+                                    <div 
+                                        key={data.regional} 
+                                        onClick={() => setSelectedRegional(data.regional)}
+                                        className="border border-gray-200 rounded-lg p-5 hover:shadow-lg transition bg-white cursor-pointer group relative overflow-hidden"
+                                    >
+                                        <div className="absolute top-0 right-0 p-2 bg-blue-50 rounded-bl-lg opacity-0 group-hover:opacity-100 transition">
+                                            <span className="text-xs text-blue-600 font-medium">Klik untuk detail</span>
+                                        </div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="font-bold text-lg text-[#002F6C] group-hover:text-blue-600 transition">{data.regional}</h3>
+                                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${data.winRate > 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                Win Rate: {data.winRate}%
+                                            </span>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-600">vs J&T</span>
+                                                <div className="flex items-center">
+                                                    {Number(data.avgDiffJnt) < 0 ? <TrendingDown className="w-4 h-4 text-red-500 mr-1"/> : <TrendingUp className="w-4 h-4 text-green-500 mr-1"/>}
+                                                    <span className={Number(data.avgDiffJnt) < 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                                                        {Math.abs(data.avgDiffJnt)}% {Number(data.avgDiffJnt) < 0 ? 'Lebih Murah' : 'Lebih Mahal'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-600">vs Lion</span>
+                                                <div className="flex items-center">
+                                                    {Number(data.avgDiffLion) < 0 ? <TrendingDown className="w-4 h-4 text-red-500 mr-1"/> : <TrendingUp className="w-4 h-4 text-green-500 mr-1"/>}
+                                                    <span className={Number(data.avgDiffLion) < 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                                                        {Math.abs(data.avgDiffLion)}% {Number(data.avgDiffLion) < 0 ? 'Lebih Murah' : 'Lebih Mahal'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-600">vs Sicepat</span>
+                                                <div className="flex items-center">
+                                                    {Number(data.avgDiffSicepat) < 0 ? <TrendingDown className="w-4 h-4 text-red-500 mr-1"/> : <TrendingUp className="w-4 h-4 text-green-500 mr-1"/>}
+                                                    <span className={Number(data.avgDiffSicepat) < 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                                                        {Math.abs(data.avgDiffSicepat)}% {Number(data.avgDiffSicepat) < 0 ? 'Lebih Murah' : 'Lebih Mahal'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // FORM KOMPETITOR
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Form Kompetitor</h2>
+                    <p className="text-gray-500 text-sm">Input data tarif dan SLA kompetitor (Regular & Trucking).</p>
+                </div>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={downloadTemplate}
+                        className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium transition"
+                    >
+                        <Download className="w-4 h-4 mr-2" /> Template
+                    </button>
+                    
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center px-4 py-2 bg-[#002F6C] text-white rounded-lg hover:bg-blue-900 text-sm font-medium transition"
+                    >
+                        <Upload className="w-4 h-4 mr-2" /> Upload Data
+                    </button>
+
+                    <button 
+                        onClick={handleSimulateAutoSearch}
+                        disabled={isLoading}
+                        className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium transition disabled:opacity-70"
+                    >
+                        {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                        Auto Search (Simulation)
+                    </button>
+
+                     <button 
+                        onClick={handleDownloadResults}
+                        disabled={rows.length === 0}
+                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition disabled:opacity-70 disabled:bg-gray-300"
+                    >
+                        <FileDown className="w-4 h-4 mr-2" /> Download Hasil
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto max-h-[70vh]">
+                    <table className="w-full text-xs text-left border-collapse">
+                        <thead className="sticky top-0 z-10 shadow-sm text-gray-700">
+                            {/* LEVEL 1: Main Groupings */}
+                            <tr className="uppercase font-bold text-center">
+                                <th colSpan={7} className="bg-[#D4EDDA] border border-gray-300 py-2">Area Origin & Destinasi</th>
+                                <th colSpan={8} className="bg-[#6CA0DC] text-white border border-gray-300 py-2">REGULAR</th>
+                                <th colSpan={8} className="bg-[#90BE6D] text-white border border-gray-300 py-2">TRUCKING / CARGO</th>
+                            </tr>
+                            
+                            {/* LEVEL 2: Couriers */}
+                            <tr className="uppercase font-bold text-center text-[10px]">
+                                {/* Geo Fixed Cols */}
+                                <th rowSpan={2} className="bg-[#D4EDDA] border border-gray-300 px-1">Koding Origin</th>
+                                <th rowSpan={2} className="bg-[#D4EDDA] border border-gray-300 px-1">Origin</th>
+                                <th rowSpan={2} className="bg-[#D4EDDA] border border-gray-300 px-1">Destinasi</th>
+                                <th rowSpan={2} className="bg-[#D4EDDA] border border-gray-300 px-1">Provinsi</th>
+                                <th rowSpan={2} className="bg-[#D4EDDA] border border-gray-300 px-1">Kab/Kota</th>
+                                <th rowSpan={2} className="bg-[#D4EDDA] border border-gray-300 px-1">Kecamatan</th>
+                                <th rowSpan={2} className="bg-[#D4EDDA] border border-gray-300 px-1">Regional</th>
+
+                                {/* Regular Couriers */}
+                                <th colSpan={2} className="bg-[#6CA0DC] text-white border border-gray-300 px-1">JNE (REG)</th>
+                                <th colSpan={2} className="bg-[#FF9F1C] text-white border border-gray-300 px-1">J&T (EZ)</th>
+                                <th colSpan={2} className="bg-[#E71D36] text-white border border-gray-300 px-1">LION PARCEL (REG PACK)</th>
+                                <th colSpan={2} className="bg-[#FCA311] text-white border border-gray-300 px-1">SICEPAT (REG)</th>
+
+                                {/* Trucking Couriers */}
+                                <th colSpan={2} className="bg-[#90BE6D] text-white border border-gray-300 px-1">JNE (JTR)</th>
+                                <th colSpan={2} className="bg-[#2EC4B6] text-white border border-gray-300 px-1">JNT CARGO</th>
+                                <th colSpan={2} className="bg-[#E71D36] text-white border border-gray-300 px-1">LION PARCEL (BIG PACK)</th>
+                                <th colSpan={2} className="bg-[#FF9F1C] text-white border border-gray-300 px-1">WAHANA (CARGO)</th>
+                            </tr>
+
+                            {/* LEVEL 3: Price & SLA */}
+                            <tr className="uppercase font-bold text-center text-[9px]">
+                                {/* Regular Subcols */}
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                                
+                                {/* Trucking Subcols */}
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">Ongkir</th>
+                                <th className="bg-white border border-gray-300 px-1 py-1">SLA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={23} className="text-center p-8 text-gray-400 bg-gray-50">
+                                        Tidak ada data ditampilkan. Upload file atau gunakan "Auto Search" simulasi.
+                                    </td>
+                                </tr>
+                            ) : (
+                                rows.map((row, idx) => (
+                                    <tr key={row.id || idx} className="hover:bg-blue-50 transition">
+                                        <td className="border border-gray-200 px-2 py-1">{row.kodingOrigin}</td>
+                                        <td className="border border-gray-200 px-2 py-1">{row.origin}</td>
+                                        <td className="border border-gray-200 px-2 py-1">{row.destinasi}</td>
+                                        <td className="border border-gray-200 px-2 py-1">{row.provinsi}</td>
+                                        <td className="border border-gray-200 px-2 py-1">{row.kabKota}</td>
+                                        <td className="border border-gray-200 px-2 py-1">{row.kecamatan}</td>
+                                        <td className="border border-gray-200 px-2 py-1 bg-yellow-50 font-semibold">{row.regional}</td>
+
+                                        {/* Regular Data */}
+                                        <td className="border border-gray-200 px-2 py-1 text-right">{formatCurrency(row.jneRegPrice)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.jneRegSla}</td>
+
+                                        <td className={`border border-gray-200 px-2 py-1 text-right ${(row.jntRegPrice > 0 && row.jntRegPrice < row.jneRegPrice) ? 'bg-red-100 text-red-700' : ''}`}>
+                                            {formatCurrency(row.jntRegPrice)}
+                                        </td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.jntRegSla}</td>
+
+                                        <td className={`border border-gray-200 px-2 py-1 text-right ${(row.lionRegPrice > 0 && row.lionRegPrice < row.jneRegPrice) ? 'bg-red-100 text-red-700' : ''}`}>
+                                            {formatCurrency(row.lionRegPrice)}
+                                        </td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.lionRegSla}</td>
+
+                                        <td className={`border border-gray-200 px-2 py-1 text-right ${(row.sicepatRegPrice > 0 && row.sicepatRegPrice < row.jneRegPrice) ? 'bg-red-100 text-red-700' : ''}`}>
+                                            {formatCurrency(row.sicepatRegPrice)}
+                                        </td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.sicepatRegSla}</td>
+
+                                        {/* Trucking Data */}
+                                        <td className="border border-gray-200 px-2 py-1 text-right">{formatCurrency(row.jneTruckPrice)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.jneTruckSla}</td>
+
+                                        <td className={`border border-gray-200 px-2 py-1 text-right ${(row.jntTruckPrice > 0 && row.jntTruckPrice < row.jneTruckPrice) ? 'bg-red-100 text-red-700' : ''}`}>
+                                            {formatCurrency(row.jntTruckPrice)}
+                                        </td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.jntTruckSla}</td>
+
+                                        <td className={`border border-gray-200 px-2 py-1 text-right ${(row.lionTruckPrice > 0 && row.lionTruckPrice < row.jneTruckPrice) ? 'bg-red-100 text-red-700' : ''}`}>
+                                            {formatCurrency(row.lionTruckPrice)}
+                                        </td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.lionTruckSla}</td>
+
+                                        <td className={`border border-gray-200 px-2 py-1 text-right ${(row.wahanaTruckPrice > 0 && row.wahanaTruckPrice < row.jneTruckPrice) ? 'bg-red-100 text-red-700' : ''}`}>
+                                            {formatCurrency(row.wahanaTruckPrice)}
+                                        </td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center">{row.wahanaTruckSla}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
