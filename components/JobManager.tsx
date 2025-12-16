@@ -126,14 +126,38 @@ export const JobManager: React.FC<JobManagerProps> = ({
     handleCancel();
   };
 
-  // ... (Template Download logic omitted for brevity in this specific update unless requested, keeping generic)
   const handleDownloadTemplate = () => {
-      // Placeholder for template download logic
-      alert("Template download belum dikonfigurasi untuk kategori ini.");
+    let headers = "";
+    let exampleRow = "";
+    let filename = `Template_${category}_${subCategory}.csv`;
+
+    if (isEmailMasuk) {
+        headers = "TGL EMAIL MASUK (YYYY-MM-DD),CABANG/DEPT,PIC USER,SUBJECT EMAIL,JENIS PENGAJUAN,PIC REPD,TANGGAL UPDATE (YYYY-MM-DD),STATUS,KETERANGAN";
+        exampleRow = "2024-03-20,Jakarta,Budi,Permintaan Data,Permintaan Baru,Andi,2024-03-21,Pending,Catatan tambahan";
+    } else if (isDisposisi) {
+        headers = "TANGGAL (YYYY-MM-DD),NO DISPOSISI,CABANG/DEPT,KLASIFIKASI,DESKRIPSI,STATUS,KETERANGAN";
+        exampleRow = "2024-03-20,DIS/001/III/2024,Bandung,Urgent,Pengajuan Anggaran,Pending,Catatan";
+    } else if (isInternalMemo) {
+        headers = "TANGGAL (YYYY-MM-DD),NO INTERNAL MEMO,CABANG/DEPT,DESKRIPSI,TANGGAL AKTIFASI (YYYY-MM-DD),STATUS,KETERANGAN";
+        exampleRow = "2024-03-20,IM/001/IT/2024,IT Dept,Update Sistem,2024-03-25,Pending,Catatan";
+    } else {
+        // Default Template for other categories
+        headers = "TANGGAL INPUT (YYYY-MM-DD),CABANG/DEPT,NAMA PEKERJAAN,STATUS,DEADLINE (YYYY-MM-DD),KETERANGAN";
+        exampleRow = "2024-03-20,Jakarta,Pekerjaan Rutin,Pending,2024-03-25,Catatan";
+    }
+
+    const csvContent = headers + "\n" + exampleRow;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Basic implementation reuse
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -145,26 +169,77 @@ export const JobManager: React.FC<JobManagerProps> = ({
       
       for(let i=1; i<lines.length; i++) {
         if(!lines[i] || !lines[i].trim()) continue;
-        const cols = lines[i].split(/,|;/); 
-        if (cols.length >= 5 && cols[0]) {
-             // Simplified CSV parser for demo
-             newJobs.push({
-                id: crypto.randomUUID(),
-                category,
-                subCategory,
-                dateInput: cols[0]?.trim() || new Date().toISOString().split('T')[0],
-                branchDept: cols[1]?.trim() || 'Unknown',
-                jobType: cols[2]?.trim() || 'Imported Job',
-                status: 'Pending',
-                deadline: new Date().toISOString().split('T')[0],
-                keterangan: cols[5]?.trim() || '',
-                createdBy: currentUser.email
-            });
+        const cols = lines[i].split(/,|;/).map(c => c.trim()); 
+        
+        // Basic validation: ensure we have at least a date
+        if (!cols[0]) continue;
+
+        let job: Partial<Job> = {
+            id: crypto.randomUUID(),
+            category,
+            subCategory,
+            status: 'Pending',
+            createdBy: currentUser.email,
+            deadline: new Date().toISOString().split('T')[0] // Default deadline
+        };
+
+        if (isEmailMasuk) {
+            // "TGL EMAIL MASUK, CABANG/DEPT, PIC USER, SUBJECT EMAIL, JENIS PENGAJUAN, PIC REPD, TANGGAL UPDATE, STATUS, KETERANGAN"
+            job.dateInput = cols[0];
+            job.branchDept = cols[1];
+            job.picUser = cols[2];
+            job.jobType = cols[3]; // Subject Email
+            job.jenisPengajuan = cols[4];
+            job.picRepd = cols[5];
+            job.tanggalUpdate = cols[6];
+            job.status = (cols[7] as Status) || 'Pending';
+            job.keterangan = cols[8];
+        } else if (isDisposisi) {
+            // "TANGGAL, NO DISPOSISI, CABANG/DEPT, KLASIFIKASI, DESKRIPSI, STATUS, KETERANGAN"
+            job.dateInput = cols[0];
+            job.noDisposisi = cols[1];
+            job.branchDept = cols[2];
+            job.klasifikasi = cols[3];
+            job.jobType = cols[4]; // Deskripsi
+            job.status = (cols[5] as Status) || 'Pending';
+            job.keterangan = cols[6];
+        } else if (isInternalMemo) {
+            // "TANGGAL, NO INTERNAL MEMO, CABANG/DEPT, DESKRIPSI, TANGGAL AKTIFASI, STATUS, KETERANGAN"
+            job.dateInput = cols[0];
+            job.noInternalMemo = cols[1];
+            job.branchDept = cols[2];
+            job.jobType = cols[3]; // Deskripsi
+            job.activationDate = cols[4];
+            job.status = (cols[5] as Status) || 'Pending';
+            job.keterangan = cols[6];
+        } else {
+            // Default: "TANGGAL INPUT, CABANG/DEPT, NAMA PEKERJAAN, STATUS, DEADLINE, KETERANGAN"
+            job.dateInput = cols[0];
+            job.branchDept = cols[1];
+            job.jobType = cols[2];
+            job.status = (cols[3] as Status) || 'Pending';
+            job.deadline = cols[4] || new Date().toISOString().split('T')[0];
+            job.keterangan = cols[5];
         }
+
+        // Validate Status
+        const validStatuses: Status[] = ['Pending', 'In Progress', 'Completed', 'Hold', 'Cancel'];
+        if (job.status && !validStatuses.includes(job.status)) {
+            job.status = 'Pending';
+        }
+
+        newJobs.push(job as Job);
       }
-      if (newJobs.length > 0) onBulkAddJobs(newJobs);
+      
+      if (newJobs.length > 0) {
+          onBulkAddJobs(newJobs);
+          alert(`Berhasil import ${newJobs.length} data!`);
+      } else {
+          alert("Gagal membaca file atau file kosong.");
+      }
     };
     reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const filteredJobs = jobs.filter(j => {
@@ -285,7 +360,7 @@ export const JobManager: React.FC<JobManagerProps> = ({
     const userCanEdit = canEditJob(job);
     const commonEditButton = userCanEdit && (
         <button 
-            onClick={(e) => { e.stopPropagation(); handleEdit(job); }}
+            onClick={() => handleEdit(job)}
             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all"
         >
             <Pencil className="w-4 h-4" />
@@ -567,6 +642,12 @@ export const JobManager: React.FC<JobManagerProps> = ({
         <div className="flex flex-wrap gap-2 w-full xl:w-auto">
           {view === 'list' ? (
             <>
+              <button 
+                  onClick={handleDownloadTemplate}
+                  className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                  <FileDown className="w-4 h-4 mr-2" /> Template
+              </button>
               <input type="file" ref={fileInputRef} className="hidden" accept=".csv,.txt" onChange={handleFileUpload} />
               <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
                 <Upload className="w-4 h-4 mr-2" /> Import Excel/CSV
@@ -745,3 +826,4 @@ export const JobManager: React.FC<JobManagerProps> = ({
     </div>
   );
 };
+
