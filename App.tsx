@@ -20,8 +20,12 @@ const DATA_KEY = 'jne_app_data_backup';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('jne_current_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+        const saved = localStorage.getItem('jne_current_user');
+        return saved ? JSON.parse(saved) : null;
+    } catch {
+        return null;
+    }
   });
 
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -45,6 +49,14 @@ function App() {
   // --- DATA LOADING LOGIC ---
   const loadData = useCallback(async () => {
     if (isSaving) return;
+    
+    // Offline Check
+    if (!navigator.onLine) {
+        setIsLoading(false);
+        setConnectionError(true);
+        return;
+    }
+
     setIsLoading(true);
 
     // 1. Always load from LocalStorage first for instant UX
@@ -104,9 +116,8 @@ function App() {
         setLastUpdated(new Date());
       }
     } catch (error) {
-      console.error("Fetch error:", error);
+      // Quietly handle error, update UI indicator but don't spam console.error
       setConnectionError(true);
-      // We don't clear state, we just show error icon, data remains from LocalStorage
     } finally {
       setIsLoading(false);
     }
@@ -154,7 +165,7 @@ function App() {
             throw new Error("Save returned false");
         }
     } catch (error) {
-        console.error("Save failed:", error);
+        console.warn("Save failed (will retry next sync):", error);
         setConnectionError(true);
         // Do NOT alert user aggressively. The UI indicator is enough.
         // Data is safe in LocalStorage.
