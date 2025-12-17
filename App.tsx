@@ -12,7 +12,7 @@ import { AUTHORIZED_USERS, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBL
 import { api } from './services/api';
 import { driveApi } from './services/driveApi';
 import emailjs from '@emailjs/browser';
-import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi, WifiOff, RefreshCw, UploadCloud, FileJson } from 'lucide-react';
+import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi, WifiOff, RefreshCw, UploadCloud, FileJson, RotateCcw } from 'lucide-react';
 
 // Storage Key Constants
 const STORAGE_MODE_KEY = 'jne_storage_mode'; // 'JSONBIN' | 'GAS' | 'LOCAL'
@@ -64,12 +64,15 @@ function App() {
     if (localData) {
         try {
             const parsed = JSON.parse(localData);
-            // Update local state immediately if empty, or if we are in local mode
-            if (jobs.length === 0 || storageMode === 'LOCAL') {
-                setJobs(parsed.jobs || []);
-                setUsers(parsed.users || AUTHORIZED_USERS);
-                setValidationLogs(parsed.validationLogs || []);
-                if (storageMode === 'LOCAL') setLastUpdated(new Date());
+            // ONLY overwrite state if jobs are empty OR we are in Local mode OR it's the initial load
+            // This prevents overwriting unsaved work if the cloud sync fails temporarily
+            if (jobs.length === 0 || storageMode === 'LOCAL' || isManualRetry) {
+                if (parsed.jobs && parsed.jobs.length > 0) {
+                    setJobs(parsed.jobs);
+                    if (parsed.users) setUsers(parsed.users);
+                    if (parsed.validationLogs) setValidationLogs(parsed.validationLogs);
+                    setLastUpdated(new Date());
+                }
             }
         } catch (e) {
             console.error("Local data corrupted", e);
@@ -96,25 +99,36 @@ function App() {
         setConnectionError(false);
         
         // Merge Strategy: Cloud is authority
-        if (data.jobs && Array.isArray(data.jobs)) setJobs(data.jobs);
-        if (data.validationLogs && Array.isArray(data.validationLogs)) setValidationLogs(data.validationLogs);
+        // BUT, if Cloud is empty and Local has data (and we are just setting up), we might want to preserve Local
+        // For now, we assume Cloud wins if it has data.
         
-        if (data.users && Array.isArray(data.users)) {
-            const mergedUsers = AUTHORIZED_USERS.map(defaultUser => {
-                const cloudUser = data.users.find((u: User) => u.email === defaultUser.email);
-                return { ...defaultUser, password: cloudUser ? cloudUser.password : defaultUser.password };
-            });
-            setUsers(mergedUsers);
+        if (data.jobs && Array.isArray(data.jobs)) {
+            // Only overwrite if cloud actually has data, or if we are strictly syncing
+            // If cloud is empty array [], and we have local data, we might be in a "New Sheet" scenario
+            // In that case, we keep local data visible so user can "Migrate" it.
+            if (data.jobs.length > 0 || jobs.length === 0) {
+                 setJobs(data.jobs);
+                 if (data.validationLogs && Array.isArray(data.validationLogs)) setValidationLogs(data.validationLogs);
+                 
+                 if (data.users && Array.isArray(data.users)) {
+                    const mergedUsers = AUTHORIZED_USERS.map(defaultUser => {
+                        const cloudUser = data.users.find((u: User) => u.email === defaultUser.email);
+                        return { ...defaultUser, password: cloudUser ? cloudUser.password : defaultUser.password };
+                    });
+                    setUsers(mergedUsers);
+                }
+            }
         }
         
         // Update Local Backup immediately after successful fetch
-        localStorage.setItem(DATA_KEY, JSON.stringify({
-            jobs: data.jobs || [],
-            users: data.users || [],
-            validationLogs: data.validationLogs || []
-        }));
-
-        setLastUpdated(new Date());
+        if (data.jobs && data.jobs.length > 0) {
+            localStorage.setItem(DATA_KEY, JSON.stringify({
+                jobs: data.jobs || [],
+                users: data.users || [],
+                validationLogs: data.validationLogs || []
+            }));
+            setLastUpdated(new Date());
+        }
       }
     } catch (error) {
       // Quietly handle error, update UI indicator
@@ -122,7 +136,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [isSaving, storageMode, jobs.length]); 
+  }, [isSaving, storageMode]); // Removed jobs.length dependency to prevent loop
 
   useEffect(() => {
     loadData();
@@ -202,14 +216,12 @@ function App() {
   };
 
   const handleResetPassword = async (email: string) => {
+    // ... existing logic ...
     const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
     if (targetUser) {
         const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-        
         const updatedUser = { ...targetUser, password: resetToken };
         const updatedUserList = users.map(u => u.email === targetUser.email ? updatedUser : u);
-        
         const newLog: ValidationLog = {
             id: crypto.randomUUID(),
             timestamp: new Date().toISOString(),
@@ -218,27 +230,13 @@ function App() {
             description: `Reset password for user ${targetUser.email}`
         };
         const updatedLogs = [newLog, ...validationLogs];
-
         await saveToCloud(jobs, updatedUserList, updatedLogs);
-
+        
         if (EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY) {
             try {
-                await emailjs.send(
-                    EMAILJS_SERVICE_ID,
-                    EMAILJS_TEMPLATE_ID,
-                    {
-                        to_name: targetUser.name,
-                        to_email: targetUser.email, 
-                        reset_token: resetToken,
-                        password: resetToken,
-                        otp: resetToken,
-                        message: `Permintaan reset password diterima. Password baru Anda adalah: ${resetToken}.`
-                    },
-                    EMAILJS_PUBLIC_KEY
-                );
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_name: targetUser.name, to_email: targetUser.email, reset_token: resetToken, password: resetToken, otp: resetToken, message: `Password baru: ${resetToken}` }, EMAILJS_PUBLIC_KEY);
                 return { success: true, isMock: false };
             } catch (error: any) {
-                console.error("Gagal mengirim email:", error);
                 return { success: true, token: resetToken, isMock: true, errorMessage: error.text || "Email Error" };
             }
         } else {
@@ -258,10 +256,8 @@ function App() {
     if (!currentUser) return false;
     const actualUser = users.find(u => u.email === currentUser.email) || currentUser;
     if (actualUser.password !== oldPass) return false;
-
     const updatedUser = { ...actualUser, password: newPass };
     const updatedUserList = users.map(u => u.email === actualUser.email ? updatedUser : u);
-    
     saveToCloud(jobs, updatedUserList, validationLogs);
     setCurrentUser(updatedUser);
     return true;
@@ -281,7 +277,6 @@ function App() {
   const handleUpdateJob = (id: string, updates: Partial<Job>) => {
     const oldJob = jobs.find(j => j.id === id);
     const newJobs = jobs.map(j => j.id === id ? { ...j, ...updates } : j);
-    
     let desc = `Update data pekerjaan`;
     if (oldJob) {
         if (updates.status && updates.status !== oldJob.status) {
@@ -292,7 +287,6 @@ function App() {
              desc = `Mengedit detail pekerjaan: ${oldJob.jobType} (${oldJob.branchDept})`;
         }
     }
-
     const newLog = createLog('UPDATE', desc, oldJob?.category);
     saveToCloud(newJobs, users, [newLog, ...validationLogs]);
   };
@@ -301,7 +295,6 @@ function App() {
     if (confirm("Apakah anda yakin ingin menghapus data ini?")) {
       const jobToDelete = jobs.find(j => j.id === id);
       const newJobs = jobs.filter(j => j.id !== id);
-      
       const newLog = createLog('DELETE', `Menghapus pekerjaan: ${jobToDelete?.jobType} (${jobToDelete?.branchDept})`, jobToDelete?.category);
       saveToCloud(newJobs, users, [newLog, ...validationLogs]);
     }
@@ -320,7 +313,21 @@ function App() {
           localStorage.setItem('jne_custom_script_url', customScriptUrl);
       }
       setShowStorageModal(false);
-      loadData(true); // Force reload with new mode
+      
+      // IMPORTANT: Don't immediately force reload if we are switching to GAS and want to migrate data.
+      // We rely on the user clicking "Upload" inside the modal.
+      // But if they clicked "Save Configuration", we do a gentle load.
+      if (mode === 'LOCAL') {
+          loadData(true);
+      } else {
+          // If switching to GAS, only load if we don't have pending local data to save
+          if (jobs.length === 0) {
+              loadData(true);
+          } else {
+              // If we have data, we assume the user might want to keep it.
+              // We do nothing here, the state remains, user can click "Sync" later if they want.
+          }
+      }
   };
 
   // Fungsi untuk memuat data contoh (Demo Data) jika kosong
@@ -335,7 +342,30 @@ function App() {
     
     // Update local immediately
     localStorage.setItem(DATA_KEY, JSON.stringify({ jobs: dummyJobs, users, validationLogs }));
-    alert("Data Contoh berhasil dimuat! Klik tombol 'Simpan Data Layar ke Google Sheet' untuk menyimpannya secara permanen ke database.");
+    alert("Data Contoh berhasil dimuat! Silakan ke menu Settings -> Google Script -> Klik 'Upload' agar data ini tersimpan permanen.");
+  };
+
+  // Fungsi Restore Data dari Backup Browser
+  const handleRestoreData = () => {
+      const localData = localStorage.getItem(DATA_KEY);
+      if (localData) {
+          try {
+              const parsed = JSON.parse(localData);
+              if (parsed.jobs && parsed.jobs.length > 0) {
+                  setJobs(parsed.jobs);
+                  setUsers(parsed.users || AUTHORIZED_USERS);
+                  setValidationLogs(parsed.validationLogs || []);
+                  setLastUpdated(new Date());
+                  alert("Data berhasil dikembalikan dari backup browser!");
+              } else {
+                  alert("Tidak ada backup data yang ditemukan.");
+              }
+          } catch (e) {
+              alert("Backup data rusak.");
+          }
+      } else {
+          alert("Tidak ada backup tersimpan di browser ini.");
+      }
   };
 
   // Fungsi Migrasi: Upload data state saat ini (local/demo) ke GAS
@@ -345,7 +375,7 @@ function App() {
         return;
     }
     
-    // Simpan URL sementara agar driveApi menggunakan URL yang baru diketik
+    // Simpan URL sementara
     localStorage.setItem('jne_custom_script_url', customScriptUrl);
     
     setIsMigrating(true);
@@ -353,8 +383,7 @@ function App() {
         // Kita kirim data yang ada di MEMORY (jobs, users, logs) ke Script
         const success = await driveApi.saveData({ jobs, users, validationLogs });
         if (success) {
-            alert("SUKSES! Semua data yang ada di layar berhasil disalin ke Google Sheet.");
-            // Otomatis pindah mode
+            alert("SUKSES! Data berhasil diupload dan disimpan ke Google Sheet.");
             setStorageMode('GAS');
             localStorage.setItem(STORAGE_MODE_KEY, 'GAS');
             setLastUpdated(new Date());
@@ -426,7 +455,7 @@ function App() {
       return null;
   };
 
-  // Status Badge Logic - Enhanced for better UX
+  // Status Badge Logic
   let statusBadge;
   if (connectionError) {
       if (storageMode === 'LOCAL') {
@@ -437,7 +466,6 @@ function App() {
               </span>
           );
       } else if (jobs.length > 0 || users.length > 0) {
-          // FRIENDLIER UI: If we have data, don't show scary red error. Show warning/offline mode.
           statusBadge = (
               <span className="flex items-center text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 text-xs font-medium animate-in fade-in" title="Koneksi cloud terganggu, namun data tersimpan aman di browser (Lokal).">
                 <WifiOff className="w-3 h-3 mr-1.5" />
@@ -445,7 +473,6 @@ function App() {
               </span>
           );
       } else {
-          // Critical Error (No Data & No Connection)
           statusBadge = (
               <span className="flex items-center text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 text-xs font-medium animate-pulse">
                 <Wifi className="w-3 h-3 mr-1.5" />
@@ -475,15 +502,11 @@ function App() {
         <div className="flex justify-between items-center mb-6 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
            <div className="flex items-center gap-3">
                {statusBadge}
-               
-               {/* Last Updated Info */}
                {lastUpdated && (
                    <span className={`text-xs ${connectionError ? 'text-amber-600/70' : 'text-gray-400'} hidden md:inline-block`}>
                        Update Terakhir: {lastUpdated.toLocaleTimeString()}
                    </span>
                )}
-
-               {/* Manual Reconnect Button - Only show if error */}
                {connectionError && (
                    <button 
                     onClick={() => loadData(true)}
@@ -513,99 +536,108 @@ function App() {
               <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
                   <div className="bg-[#002F6C] p-4 flex justify-between items-center text-white">
                       <h3 className="font-bold flex items-center gap-2">
-                          <Database className="w-5 h-5" /> Konfigurasi Penyimpanan
+                          <Database className="w-5 h-5" /> Konfigurasi & Data
                       </h3>
                       <button onClick={() => setShowStorageModal(false)} className="hover:text-gray-300">Close</button>
                   </div>
                   
                   <div className="p-6 space-y-6">
-                      <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                          Pilih tempat penyimpanan data aplikasi Anda.
-                      </p>
-
-                      <div className="space-y-4">
-                          {/* Option 2: Google Script */}
-                          <div 
-                              onClick={() => setStorageMode('GAS')}
-                              className={`p-4 rounded-lg border cursor-pointer transition-all flex items-start gap-3 ${storageMode === 'GAS' ? 'border-green-500 bg-green-50 ring-1 ring-green-500' : 'border-gray-200 hover:border-green-300'}`}
-                          >
-                               <div className={`mt-1 p-1 rounded-full ${storageMode === 'GAS' ? 'bg-green-600' : 'bg-gray-200'}`}>
+                      
+                      {/* Section Google Script */}
+                      <div className={`p-4 rounded-lg border transition-all ${storageMode === 'GAS' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+                          <div className="flex items-center gap-3 mb-2 cursor-pointer" onClick={() => setStorageMode('GAS')}>
+                              <div className={`p-1 rounded-full ${storageMode === 'GAS' ? 'bg-green-600' : 'bg-gray-200'}`}>
                                   <div className="w-2 h-2 bg-white rounded-full"></div>
                               </div>
-                              <div className="flex-1">
-                                  <h4 className="font-bold text-gray-800">Google Apps Script (Recommended)</h4>
-                                  <p className="text-xs text-gray-500 mt-1">Simpan data di Google Sheet pribadi Anda. Gratis & Aman.</p>
-                                  
-                                  {storageMode === 'GAS' && (
-                                      <div className="mt-3 animate-in fade-in space-y-3">
-                                          <div>
-                                              <label className="block text-xs font-bold text-gray-700 mb-1">URL Web App Google Script:</label>
-                                              <input 
-                                                type="text" 
-                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:border-green-500 focus:outline-none"
-                                                placeholder="https://script.google.com/macros/s/.../exec"
-                                                value={customScriptUrl || GOOGLE_SCRIPT_URL}
-                                                onChange={(e) => setCustomScriptUrl(e.target.value)}
-                                                onClick={(e) => e.stopPropagation()}
-                                              />
-                                          </div>
-                                          
-                                          {/* MIGRATION BUTTON */}
-                                          <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg flex flex-col gap-2">
-                                             <p className="text-[10px] text-orange-800 font-medium">
-                                                {jobs.length > 0 
-                                                    ? "Ada data di layar saat ini. Klik tombol di bawah untuk menyalinnya ke Google Sheet baru Anda."
-                                                    : "Data masih kosong. Muat data contoh (dummy) dahulu jika ingin tes upload."
-                                                }
-                                             </p>
-                                             
-                                             <div className="flex gap-2">
-                                                {jobs.length === 0 && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleLoadSampleData(); }}
-                                                        className="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded hover:bg-gray-200 transition flex items-center justify-center gap-1"
-                                                    >
-                                                        <FileJson className="w-3 h-3" />
-                                                        Muat Data Contoh
-                                                    </button>
-                                                )}
-
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleMigrateToGAS(); }}
-                                                    disabled={isMigrating || jobs.length === 0}
-                                                    className="flex-1 py-2 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
-                                                >
-                                                    {isMigrating ? <RefreshCw className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-3 h-3"/>}
-                                                    Simpan Data Layar ke Google Sheet
-                                                </button>
-                                             </div>
-                                          </div>
-                                      </div>
-                                  )}
-                              </div>
+                              <h4 className="font-bold text-gray-800">Google Apps Script (Online)</h4>
                           </div>
+                          
+                          {storageMode === 'GAS' && (
+                              <div className="ml-6 space-y-3 animate-in fade-in">
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-700 mb-1">URL Web App Google Script:</label>
+                                      <input 
+                                        type="text" 
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:border-green-500 focus:outline-none"
+                                        placeholder="https://script.google.com/macros/s/.../exec"
+                                        value={customScriptUrl || GOOGLE_SCRIPT_URL}
+                                        onChange={(e) => setCustomScriptUrl(e.target.value)}
+                                      />
+                                  </div>
+                                  
+                                  {/* MIGRATION BUTTON (Primary Action if there is data) */}
+                                  <div className="bg-white border border-green-200 p-3 rounded-lg shadow-sm">
+                                     <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-bold text-green-800">
+                                            {jobs.length > 0 ? "⚠️ Anda memiliki data di layar!" : "Status Data"}
+                                        </p>
+                                     </div>
+                                     
+                                     <div className="flex flex-col gap-2">
+                                        {/* Jika ada data di layar, tawarkan upload */}
+                                        <button
+                                            onClick={handleMigrateToGAS}
+                                            disabled={isMigrating || jobs.length === 0}
+                                            className="w-full py-2.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400"
+                                        >
+                                            {isMigrating ? <RefreshCw className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-4 h-4"/>}
+                                            Upload Data Layar ke Google Sheet
+                                        </button>
+                                        
+                                        <p className="text-[10px] text-gray-500 text-center">
+                                            Klik tombol di atas agar data yang sudah Anda input tidak hilang saat pindah ke Google Sheet.
+                                        </p>
+                                     </div>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
 
-                          {/* Option 3: Local Only */}
-                          <div 
-                              onClick={() => setStorageMode('LOCAL')}
-                              className={`p-4 rounded-lg border cursor-pointer transition-all flex items-start gap-3 ${storageMode === 'LOCAL' ? 'border-gray-500 bg-gray-50 ring-1 ring-gray-500' : 'border-gray-200 hover:border-gray-300'}`}
-                          >
-                               <div className={`mt-1 p-1 rounded-full ${storageMode === 'LOCAL' ? 'bg-gray-600' : 'bg-gray-200'}`}>
+                      {/* Section Local Only */}
+                      <div className={`p-4 rounded-lg border transition-all ${storageMode === 'LOCAL' ? 'border-gray-500 bg-gray-50' : 'border-gray-200'}`}>
+                          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setStorageMode('LOCAL')}>
+                               <div className={`p-1 rounded-full ${storageMode === 'LOCAL' ? 'bg-gray-600' : 'bg-gray-200'}`}>
                                   <div className="w-2 h-2 bg-white rounded-full"></div>
                               </div>
                               <div>
                                   <h4 className="font-bold text-gray-800">Local Only (Offline)</h4>
-                                  <p className="text-xs text-gray-500 mt-1">Hanya di browser ini. Tidak butuh internet.</p>
+                                  <p className="text-xs text-gray-500">Data hanya tersimpan di browser ini.</p>
                               </div>
                           </div>
                       </div>
 
-                      <div className="pt-4 flex justify-end">
+                      {/* TOOLS SECTION: Recover Data & Sample Data */}
+                      <div className="border-t border-gray-200 pt-4">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-2">Tools Pemulihan Data</p>
+                          <div className="grid grid-cols-2 gap-3">
+                              <button
+                                onClick={handleLoadSampleData}
+                                className="py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded hover:bg-gray-200 transition flex items-center justify-center gap-2"
+                              >
+                                  <FileJson className="w-3 h-3" />
+                                  Muat Data Contoh
+                              </button>
+                              
+                              <button
+                                onClick={handleRestoreData}
+                                className="py-2 bg-blue-50 text-blue-700 text-xs font-bold rounded hover:bg-blue-100 transition flex items-center justify-center gap-2"
+                              >
+                                  <RotateCcw className="w-3 h-3" />
+                                  Kembalikan Data Terakhir
+                              </button>
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-2">
+                            *Gunakan "Kembalikan Data Terakhir" jika data Anda tiba-tiba hilang/kosong.
+                          </p>
+                      </div>
+
+                      <div className="pt-2 flex justify-end border-t border-gray-100">
+                           {/* Generic Save button mainly for changing modes without migrating */}
                           <button 
                             onClick={() => handleStorageChange(storageMode)}
-                            className="px-6 py-2 bg-[#002F6C] text-white rounded-lg font-bold hover:bg-blue-900 transition flex items-center gap-2"
+                            className="px-6 py-2 text-gray-600 hover:text-[#002F6C] font-bold text-sm transition"
                           >
-                              <Save className="w-4 h-4" /> Simpan Konfigurasi
+                              Tutup / Simpan Mode
                           </button>
                       </div>
                   </div>
