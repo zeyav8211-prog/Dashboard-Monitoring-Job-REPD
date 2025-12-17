@@ -12,7 +12,7 @@ import { AUTHORIZED_USERS, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBL
 import { api } from './services/api';
 import { driveApi } from './services/driveApi';
 import emailjs from '@emailjs/browser';
-import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi, WifiOff, RefreshCw, UploadCloud } from 'lucide-react';
+import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi, WifiOff, RefreshCw, UploadCloud, FileJson } from 'lucide-react';
 
 // Storage Key Constants
 const STORAGE_MODE_KEY = 'jne_storage_mode'; // 'JSONBIN' | 'GAS' | 'LOCAL'
@@ -323,6 +323,21 @@ function App() {
       loadData(true); // Force reload with new mode
   };
 
+  // Fungsi untuk memuat data contoh (Demo Data) jika kosong
+  const handleLoadSampleData = () => {
+    const dummyJobs: Job[] = [
+        { id: crypto.randomUUID(), category: 'Penyesuaian', subCategory: 'Publish Rate', dateInput: new Date().toISOString().split('T')[0], branchDept: 'KANTOR PUSAT', jobType: 'Update Tarif Reguler 2024', status: 'In Progress', deadline: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Menunggu validasi IT' },
+        { id: crypto.randomUUID(), category: 'Report Surat', subCategory: 'Email Masuk', dateInput: new Date().toISOString().split('T')[0], branchDept: 'JNE MEDAN', jobType: 'Komplain Kiriman Corporate', status: 'Pending', deadline: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Email dari PT Maju Jaya', picUser: 'Budi', jenisPengajuan: 'Komplain', picRepd: 'Ani' },
+        { id: crypto.randomUUID(), category: 'Request Data', subCategory: 'Nasional', dateInput: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0], branchDept: 'SALES', jobType: 'Data Penjualan Q1', status: 'Completed', deadline: new Date().toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Sudah dikirim via email' },
+        { id: crypto.randomUUID(), category: 'Problem', subCategory: 'SLA', dateInput: new Date().toISOString().split('T')[0], branchDept: 'OPS', jobType: 'Keterlambatan Rute SUB-CGK', status: 'Overdue', deadline: new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Perlu investigasi mendalam' },
+    ];
+    setJobs(dummyJobs);
+    
+    // Update local immediately
+    localStorage.setItem(DATA_KEY, JSON.stringify({ jobs: dummyJobs, users, validationLogs }));
+    alert("Data Contoh berhasil dimuat! Klik tombol 'Simpan Data Layar ke Google Sheet' untuk menyimpannya secara permanen ke database.");
+  };
+
   // Fungsi Migrasi: Upload data state saat ini (local/demo) ke GAS
   const handleMigrateToGAS = async () => {
     if (!customScriptUrl && !GOOGLE_SCRIPT_URL) {
@@ -338,7 +353,7 @@ function App() {
         // Kita kirim data yang ada di MEMORY (jobs, users, logs) ke Script
         const success = await driveApi.saveData({ jobs, users, validationLogs });
         if (success) {
-            alert("SUKSES! Semua data di layar berhasil disalin ke Google Sheet.");
+            alert("SUKSES! Semua data yang ada di layar berhasil disalin ke Google Sheet.");
             // Otomatis pindah mode
             setStorageMode('GAS');
             localStorage.setItem(STORAGE_MODE_KEY, 'GAS');
@@ -536,18 +551,34 @@ function App() {
                                           </div>
                                           
                                           {/* MIGRATION BUTTON */}
-                                          <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
-                                             <p className="text-[10px] text-orange-800 mb-2 font-medium">
-                                                Ingin memindahkan data yang ada di Demo/Local ke Google Sheet baru?
+                                          <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg flex flex-col gap-2">
+                                             <p className="text-[10px] text-orange-800 font-medium">
+                                                {jobs.length > 0 
+                                                    ? "Ada data di layar saat ini. Klik tombol di bawah untuk menyalinnya ke Google Sheet baru Anda."
+                                                    : "Data masih kosong. Muat data contoh (dummy) dahulu jika ingin tes upload."
+                                                }
                                              </p>
-                                             <button
-                                                onClick={(e) => { e.stopPropagation(); handleMigrateToGAS(); }}
-                                                disabled={isMigrating}
-                                                className="w-full py-2 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition flex items-center justify-center gap-2"
-                                             >
-                                                {isMigrating ? <RefreshCw className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-3 h-3"/>}
-                                                Upload Data di Layar ke Google Sheet
-                                             </button>
+                                             
+                                             <div className="flex gap-2">
+                                                {jobs.length === 0 && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleLoadSampleData(); }}
+                                                        className="flex-1 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded hover:bg-gray-200 transition flex items-center justify-center gap-1"
+                                                    >
+                                                        <FileJson className="w-3 h-3" />
+                                                        Muat Data Contoh
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleMigrateToGAS(); }}
+                                                    disabled={isMigrating || jobs.length === 0}
+                                                    className="flex-1 py-2 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                                                >
+                                                    {isMigrating ? <RefreshCw className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-3 h-3"/>}
+                                                    Simpan Data Layar ke Google Sheet
+                                                </button>
+                                             </div>
                                           </div>
                                       </div>
                                   )}
@@ -574,7 +605,7 @@ function App() {
                             onClick={() => handleStorageChange(storageMode)}
                             className="px-6 py-2 bg-[#002F6C] text-white rounded-lg font-bold hover:bg-blue-900 transition flex items-center gap-2"
                           >
-                              <Save className="w-4 h-4" /> Simpan & Muat Ulang
+                              <Save className="w-4 h-4" /> Simpan Konfigurasi
                           </button>
                       </div>
                   </div>
