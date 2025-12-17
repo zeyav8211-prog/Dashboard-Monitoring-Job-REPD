@@ -4,9 +4,14 @@ import { Job, Status, User } from '../types';
 import { MENU_STRUCTURE } from '../constants';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area
 } from 'recharts';
-import { AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle, Tag, MapPin, X, CheckSquare, FileText, Calendar, User as UserIcon, AlertTriangle } from 'lucide-react';
+import { 
+  AlertCircle, CheckCircle2, Clock, CalendarDays, Upload, FileDown, 
+  ArrowLeft, Search, RefreshCw, Cloud, WifiOff, PauseCircle, XCircle, 
+  Tag, MapPin, X, FileText, User as UserIcon, AlertTriangle, TrendingUp,
+  Activity, Briefcase
+} from 'lucide-react';
 
 interface DashboardSummaryProps {
   jobs: Job[];
@@ -20,7 +25,6 @@ interface DashboardSummaryProps {
   customTitle?: string;
 }
 
-// Updated Colors: Added Purple for Hold and Gray for Cancel
 const COLORS = ['#0088FE', '#FFBB28', '#00C49F', '#EE2E24', '#8884d8', '#9CA3AF'];
 
 export const DashboardSummary: React.FC<DashboardSummaryProps> = ({ 
@@ -50,31 +54,29 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Cancelled and Hold jobs are usually not considered "Overdue" in the traditional sense
     const overdueJobs = jobs.filter(j => {
       const deadline = new Date(j.deadline);
       deadline.setHours(0, 0, 0, 0);
       return deadline < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold';
     });
 
-    // Warning Jobs: Deadline is Today (H-0) or Tomorrow (H-1)
     const warningJobs = jobs.filter(j => {
         if (j.status === 'Completed' || j.status === 'Cancel' || j.status === 'Hold') return false;
-        
         const deadline = new Date(j.deadline);
         deadline.setHours(0, 0, 0, 0);
-        
         const diffTime = deadline.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        // Return true if diffDays is 0 (Today) or 1 (Tomorrow/H-1)
         return diffDays >= 0 && diffDays <= 1;
     });
+
+    // Calculate Completion Rate
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return { 
         total, completed, pending, inProgress, hold, cancel, 
         overdue: overdueJobs.length, overdueList: overdueJobs,
-        warning: warningJobs.length, warningList: warningJobs
+        warning: warningJobs.length, warningList: warningJobs,
+        completionRate
     };
   }, [jobs]);
 
@@ -82,21 +84,18 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     { name: 'Pending', value: stats.pending },
     { name: 'In Progress', value: stats.inProgress },
     { name: 'Completed', value: stats.completed },
-    { name: 'Overdue', value: stats.overdue },
     { name: 'Hold', value: stats.hold },
     { name: 'Cancel', value: stats.cancel },
   ].filter(item => item.value > 0);
 
   const barData = useMemo(() => {
     const counts: Record<string, number> = {};
-    // Initialize with 0 for all known categories to ensure they appear on chart even if empty
     Object.keys(MENU_STRUCTURE).forEach(cat => counts[cat] = 0);
     
     jobs.forEach(job => {
       if (counts[job.category] !== undefined) {
         counts[job.category] = (counts[job.category] || 0) + 1;
       } else {
-        // Handle categories that might not be in MENU_STRUCTURE anymore
         counts[job.category] = (counts[job.category] || 0) + 1;
       }
     });
@@ -106,6 +105,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     }));
   }, [jobs]);
 
+  // Handle File Upload & Template Download (Same as before but cleaner code if needed)
   const handleDownloadTemplate = () => {
     const headers = "Kategori,Sub Kategori,Tanggal Input (YYYY-MM-DD),Cabang/Dept,Nama Pekerjaan,Status,Deadline (YYYY-MM-DD),Keterangan";
     const exampleRow = "Penyesuaian,Publish Rate,2024-03-20,Jakarta,Update Tarif,Pending,2024-03-25,Catatan Tambahan";
@@ -131,16 +131,12 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
       
       for(let i=1; i<lines.length; i++) {
         if(!lines[i] || !lines[i].trim()) continue;
-        
         const cols = lines[i].split(/,|;/); 
-        
         if (cols.length >= 7 && cols[0] && cols[1]) {
             const rawStatus = cols[5]?.trim();
             let validStatus: Status = 'Pending';
             const allowedStatuses = ['In Progress', 'Completed', 'Overdue', 'Hold', 'Cancel'];
-            if (allowedStatuses.includes(rawStatus)) {
-                validStatus = rawStatus as Status;
-            }
+            if (allowedStatuses.includes(rawStatus)) validStatus = rawStatus as Status;
 
             newJobs.push({
                 id: crypto.randomUUID(),
@@ -152,17 +148,13 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 status: validStatus,
                 deadline: cols[6]?.trim() || new Date().toISOString().split('T')[0],
                 keterangan: cols[7]?.trim() || '',
-                activationDate: undefined,
-                createdBy: currentUser.email // Set owner to current user
+                createdBy: currentUser.email 
             });
         }
       }
-      
       if (newJobs.length > 0) {
           onBulkAddJobs(newJobs);
           alert(`Berhasil mengimport ${newJobs.length} data pekerjaan secara global!`);
-      } else {
-          alert("Gagal membaca file. Pastikan menggunakan Template Global yang sesuai.");
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -171,21 +163,17 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
 
   const filteredList = useMemo(() => {
     if (!filterStatus) return [];
-    
     let result = jobs;
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    if (filterStatus === 'Total') {
-        result = jobs;
-    } else if (filterStatus === 'Overdue') {
+    if (filterStatus === 'Overdue') {
         result = jobs.filter(j => {
             const d = new Date(j.deadline);
             d.setHours(0,0,0,0);
             return d < today && j.status !== 'Completed' && j.status !== 'Cancel' && j.status !== 'Hold';
         });
     } else if (filterStatus === 'Warning') {
-        // H-1 Logic Filter
         result = jobs.filter(j => {
              if (j.status === 'Completed' || j.status === 'Cancel' || j.status === 'Hold') return false;
              const deadline = new Date(j.deadline);
@@ -197,10 +185,8 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     } else if (filterStatus === 'In Progress') {
         result = jobs.filter(j => j.status === 'In Progress' || j.status === 'Pending');
     } else if (Object.keys(MENU_STRUCTURE).includes(filterStatus)) {
-        // Handle Category Filtering logic
         result = jobs.filter(j => j.category === filterStatus);
-    } else {
-        // Handle Status Filtering logic
+    } else if (filterStatus !== 'Total') {
         result = jobs.filter(j => j.status === filterStatus);
     }
 
@@ -208,239 +194,172 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         result = result.filter(j => 
             j.branchDept.toLowerCase().includes(searchTerm.toLowerCase()) || 
             j.jobType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            j.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (j.keterangan && j.keterangan.toLowerCase().includes(searchTerm.toLowerCase()))
+            j.category.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
     return result;
   }, [jobs, filterStatus, searchTerm]);
 
+  const canEditJob = (job: Job) => currentUser.role === 'Admin' || job.createdBy === currentUser.email;
+
   const getStatusColor = (status: Status, deadline: string) => {
-    if (status === 'Hold') return 'bg-purple-100 text-purple-800 border-purple-200';
-    if (status === 'Cancel') return 'bg-gray-200 text-gray-800 border-gray-300';
-    
     const today = new Date();
     today.setHours(0,0,0,0);
     const d = new Date(deadline);
     d.setHours(0,0,0,0);
 
-    // Overdue
-    if (d < today && status !== 'Completed') return 'bg-red-100 text-red-800 border-red-200';
-    
-    // Warning H-1 (Today or Tomorrow)
-    const diffTime = d.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays >= 0 && diffDays <= 1 && status !== 'Completed') {
-        return 'bg-orange-100 text-orange-800 border-orange-200 font-bold';
-    }
-    
-    switch (status) {
-      case 'Completed': return 'bg-green-100 text-green-800 border-green-200';
-      case 'In Progress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-blue-50 text-blue-800 border-blue-100';
-    }
+    if (status === 'Hold') return 'bg-purple-100 text-purple-700 border-purple-200';
+    if (status === 'Cancel') return 'bg-gray-100 text-gray-600 border-gray-200';
+    if (d < today && status !== 'Completed') return 'bg-red-100 text-red-700 border-red-200';
+    if (status === 'Completed') return 'bg-green-100 text-green-700 border-green-200';
+    if (status === 'In Progress') return 'bg-blue-100 text-blue-700 border-blue-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
   };
 
-  const formatKeterangan = (text: string | undefined) => {
-    if (!text) return '-';
-    // Menampilkan 40 karakter terakhir
-    if (text.length > 40) {
-        return '...' + text.slice(-40);
-    }
-    return text;
-  };
+  // Modern Stat Card Component
+  const ModernStatCard = ({ title, value, subtext, icon: Icon, colorClass, bgClass, onClick }: any) => (
+    <div 
+        onClick={onClick}
+        className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+    >
+        <div className={`absolute top-0 right-0 p-4 opacity-10 rounded-bl-3xl ${bgClass} w-24 h-24 -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
+        
+        <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className={`p-3 rounded-xl ${bgClass} ${colorClass}`}>
+                <Icon className="w-6 h-6" />
+            </div>
+            {subtext && <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-full">{subtext}</span>}
+        </div>
+        
+        <div className="relative z-10">
+            <h3 className="text-3xl font-bold text-gray-800 mb-1">{value}</h3>
+            <p className="text-sm text-gray-500 font-medium">{title}</p>
+        </div>
+    </div>
+  );
 
-  const getFilterTitle = () => {
-      if (filterStatus === 'In Progress') return 'Dalam Proses & Pending';
-      if (filterStatus === 'Warning') return 'Mendekati Deadline (H-1)';
-      if (Object.keys(MENU_STRUCTURE).includes(filterStatus || '')) return `Kategori: ${filterStatus}`;
-      return filterStatus;
-  }
-
-  // Permission Checker
-  const canEditJob = (job: Job) => {
-      // Admin can edit everything
-      if (currentUser.role === 'Admin') return true;
-      // User can only edit if they created the job
-      return job.createdBy === currentUser.email;
-  };
-
+  // --- VIEW: DETAIL FILTER ---
   if (filterStatus) {
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
+        <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-4">
                     <button 
                         onClick={() => setFilterStatus(null)}
-                        className="flex items-center text-gray-500 hover:text-[#EE2E24] mb-2 transition-colors"
+                        className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
                     >
-                        <ArrowLeft className="w-4 h-4 mr-1" /> Kembali ke Dashboard
+                        <ArrowLeft className="w-6 h-6" />
                     </button>
-                    <h2 className="text-2xl font-bold text-gray-800">
-                        Detail Pekerjaan: <span className="text-[#002F6C]">{getFilterTitle()}</span>
-                    </h2>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800">
+                            Detail: <span className="text-[#002F6C]">{filterStatus === 'Total' ? 'Semua Pekerjaan' : filterStatus}</span>
+                        </h2>
+                        <p className="text-sm text-gray-500">Menampilkan {filteredList.length} data pekerjaan</p>
+                    </div>
                 </div>
                 
-                <div className="relative w-full md:w-64">
+                <div className="relative w-full md:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
                         type="text" 
-                        placeholder="Cari..." 
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        placeholder="Cari data..." 
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
+                        <thead className="bg-gray-50/50 text-gray-600 border-b border-gray-200 font-medium">
                             <tr>
-                                <th className="p-4">Kategori / Sub</th>
+                                <th className="p-4">Kategori</th>
                                 <th className="p-4">Tanggal Input</th>
                                 <th className="p-4">Cabang</th>
                                 <th className="p-4">Nama Pekerjaan</th>
-                                <th className="p-4">Keterangan</th>
                                 <th className="p-4">Status</th>
                                 <th className="p-4">Deadline</th>
-                                <th className="p-4">Oleh</th>
+                                <th className="p-4">Owner</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {filteredList.length === 0 ? (
-                                <tr><td colSpan={8} className="p-8 text-center text-gray-400">Tidak ada data ditemukan.</td></tr>
+                                <tr><td colSpan={7} className="p-12 text-center text-gray-400">Tidak ada data ditemukan.</td></tr>
                             ) : (
-                                filteredList.map(job => {
-                                    const userCanEdit = canEditJob(job);
-                                    
-                                    return (
+                                filteredList.map(job => (
                                     <tr 
                                         key={job.id} 
-                                        className="hover:bg-gray-50 cursor-pointer"
+                                        className="hover:bg-blue-50/50 cursor-pointer transition-colors"
                                         onClick={() => setSelectedJob(job)}
                                     >
                                         <td className="p-4">
-                                            <div className="font-medium text-gray-800">{job.category}</div>
+                                            <div className="font-bold text-gray-700">{job.category}</div>
                                             <div className="text-xs text-gray-500">{job.subCategory}</div>
                                         </td>
-                                        <td className="p-4">{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
-                                        <td className="p-4">{job.branchDept}</td>
-                                        <td className="p-4">{job.jobType}</td>
-                                        <td className="p-4 italic text-gray-500" title={job.keterangan}>
-                                            {formatKeterangan(job.keterangan)}
+                                        <td className="p-4 text-gray-600">{new Date(job.dateInput).toLocaleDateString('id-ID')}</td>
+                                        <td className="p-4 font-medium text-gray-800">{job.branchDept}</td>
+                                        <td className="p-4 text-gray-700">{job.jobType}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(job.status, job.deadline)}`}>
+                                                {job.status}
+                                            </span>
                                         </td>
                                         <td className="p-4">
-                                            <select 
-                                                value={job.status}
-                                                onChange={(e) => onUpdateJob(job.id, { status: e.target.value as Status })}
-                                                disabled={!userCanEdit}
-                                                onClick={(e) => e.stopPropagation()}
-                                                className={`px-3 py-1 rounded-full text-xs font-semibold border appearance-none focus:outline-none ${getStatusColor(job.status, job.deadline)} ${userCanEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
-                                            >
-                                                <option value="Pending">Pending</option>
-                                                <option value="In Progress">In Progress</option>
-                                                <option value="Completed">Completed</option>
-                                                <option value="Hold">Hold</option>
-                                                <option value="Cancel">Cancel</option>
-                                            </select>
+                                            <span className={`font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}>
+                                                {new Date(job.deadline).toLocaleDateString('id-ID')}
+                                            </span>
                                         </td>
-                                        <td className="p-4">
-                                            {userCanEdit ? (
-                                                <input 
-                                                    type="date"
-                                                    className={`text-sm border-b border-dashed border-gray-300 bg-transparent focus:outline-none focus:border-blue-500 font-medium ${new Date() > new Date(job.deadline) && job.status !== 'Completed' && job.status !== 'Cancel' && job.status !== 'Hold' ? 'text-red-600' : 'text-gray-600'}`}
-                                                    value={job.deadline}
-                                                    onChange={(e) => onUpdateJob(job.id, { deadline: e.target.value })}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                />
-                                            ) : (
-                                                <span className={`text-sm ${new Date() > new Date(job.deadline) && job.status !== 'Completed' ? 'text-red-600' : 'text-gray-600'}`}>
-                                                    {new Date(job.deadline).toLocaleDateString('id-ID')}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-xs text-gray-400">
-                                            {job.createdBy || '-'}
-                                        </td>
+                                        <td className="p-4 text-xs text-gray-500">{job.createdBy?.split('@')[0]}</td>
                                     </tr>
-                                )})
+                                ))
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
-
-            {/* Job Detail Modal */}
+            
+            {/* Reusing Job Detail Modal from previous component logic if needed, simplified here */}
             {selectedJob && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedJob(null)}>
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedJob(null)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                        <div className="bg-[#002F6C] p-6 text-white flex justify-between items-start relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-4 -translate-y-4">
-                                <Tag className="w-32 h-32" />
-                            </div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 text-blue-200 text-sm mb-1">
-                                    <span className="font-semibold uppercase tracking-wider">{selectedJob.category}</span>
-                                    <span>•</span>
-                                    <span>{selectedJob.subCategory}</span>
-                                </div>
-                                <h2 className="text-2xl font-bold leading-tight">{selectedJob.jobType}</h2>
-                                <div className="flex items-center gap-2 mt-2 text-sm text-blue-100">
-                                    <MapPin className="w-4 h-4" />
-                                    <span>{selectedJob.branchDept}</span>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => setSelectedJob(null)}
-                                className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors z-20"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                        <div className="bg-[#002F6C] p-6 text-white relative">
+                             <button onClick={() => setSelectedJob(null)} className="absolute top-4 right-4 text-white/70 hover:text-white"><X className="w-5 h-5"/></button>
+                             <h2 className="text-xl font-bold pr-8">{selectedJob.jobType}</h2>
+                             <p className="text-blue-200 text-sm mt-1">{selectedJob.branchDept}</p>
                         </div>
-
-                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                            {/* Status & Dates */}
-                            <div className="flex flex-wrap gap-4 justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                <div className={`px-4 py-1.5 rounded-full text-sm font-bold border ${getStatusColor(selectedJob.status, selectedJob.deadline)}`}>
-                                    {selectedJob.status}
-                                </div>
-                                <div className="text-right">
-                                    <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-0.5 justify-end">
-                                        <Clock className="w-3.5 h-3.5" />
-                                        <span>Deadline</span>
+                        <div className="p-6 space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div><label className="text-xs text-gray-500">Kategori</label><p className="font-medium">{selectedJob.category}</p></div>
+                                <div><label className="text-xs text-gray-500">Status</label>
+                                    <div className="mt-1">
+                                    <span className={`px-2 py-0.5 rounded text-xs border ${getStatusColor(selectedJob.status, selectedJob.deadline)}`}>{selectedJob.status}</span>
                                     </div>
-                                    <span className={`font-semibold ${new Date() > new Date(selectedJob.deadline) && selectedJob.status !== 'Completed' ? 'text-red-600' : 'text-gray-800'}`}>
-                                        {new Date(selectedJob.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                    </span>
                                 </div>
+                                <div><label className="text-xs text-gray-500">Deadline</label><p className="font-medium">{new Date(selectedJob.deadline).toLocaleDateString()}</p></div>
+                                <div><label className="text-xs text-gray-500">Owner</label><p className="font-medium truncate">{selectedJob.createdBy}</p></div>
                             </div>
-
-                            {/* Description */}
-                            <div>
-                                <h4 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
-                                    <FileText className="w-4 h-4 text-gray-400" />
-                                    Keterangan Lengkap
-                                </h4>
-                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                                    {selectedJob.keterangan || "Tidak ada keterangan."}
-                                </div>
+                            <div className="bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
+                                <label className="text-xs text-gray-500 block mb-1">Keterangan</label>
+                                <p className="text-gray-700 whitespace-pre-wrap">{selectedJob.keterangan || '-'}</p>
                             </div>
-
-                            {/* Metadata */}
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 text-xs">
-                                <div>
-                                    <span className="block text-gray-400 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Tanggal Input</span>
-                                    <span className="font-medium text-gray-700">
-                                        {new Date(selectedJob.dateInput).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                    </span>
+                            {canEditJob(selectedJob) && (
+                                <div className="pt-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Quick Update Status</label>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {['Pending', 'In Progress', 'Completed'].map(s => (
+                                            <button 
+                                                key={s}
+                                                onClick={() => { onUpdateJob(selectedJob.id, {status: s as Status}); setSelectedJob(null); }}
+                                                className={`px-3 py-1 rounded-full text-xs border transition ${selectedJob.status === s ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="block text-gray-400 mb-1 flex items-center gap-1"><UserIcon className="w-3 h-3" /> Dibuat Oleh</span>
-                                    <span className="font-medium text-gray-700">{selectedJob.createdBy || 'Unknown'}</span>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -449,226 +368,179 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     );
   }
 
+  // --- VIEW: MAIN DASHBOARD ---
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 mb-6">
-        <div>
-            <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-800">{customTitle || "Dashboard Monitoring Pekerjaan"}</h1>
-                <div className={`flex items-center px-2 py-1 rounded text-xs border ${connectionError ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                    {connectionError ? (
-                        <>
-                            <WifiOff className="w-3 h-3 mr-1" />
-                            <span>Offline / Error</span>
-                        </>
-                    ) : isSaving ? (
-                        <>
-                            <RefreshCw className="w-3 h-3 mr-1 animate-spin text-blue-600" />
-                            <span>Menyimpan...</span>
-                        </>
-                    ) : isLoading ? (
-                        <>
-                            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                            <span>Syncing...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Cloud className="w-3 h-3 mr-1 text-green-600" />
-                            <span>Terhubung</span>
-                        </>
-                    )}
+    <div className="space-y-8 animate-in fade-in duration-500">
+      
+      {/* 1. HEADER SECTION */}
+      <div className="relative rounded-3xl overflow-hidden shadow-lg">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#002F6C] to-[#00509E]"></div>
+          <div className="absolute right-0 top-0 h-full w-1/2 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+          
+          <div className="relative z-10 p-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+              <div className="text-white space-y-2">
+                  <div className="flex items-center gap-2 mb-1">
+                      <Briefcase className="w-5 h-5 text-blue-300" />
+                      <span className="text-blue-200 text-sm font-medium tracking-wide">WORKSPACE</span>
+                  </div>
+                  <h1 className="text-3xl font-bold">{customTitle || "Dashboard Monitoring Pekerjaan"}</h1>
+                  <p className="text-blue-100 opacity-90 max-w-xl">
+                      Selamat datang kembali, <strong>{currentUser.name}</strong>. Berikut adalah ringkasan performa dan status pekerjaan tim Anda hari ini.
+                  </p>
+                  
+                  <div className="flex items-center gap-3 pt-2">
+                      <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-bold border backdrop-blur-sm ${connectionError ? 'bg-orange-500/20 border-orange-400 text-orange-100' : 'bg-green-500/20 border-green-400 text-green-100'}`}>
+                          {connectionError ? (
+                              <>
+                                  <WifiOff className="w-3 h-3 mr-1.5" />
+                                  Local Mode (Offline)
+                              </>
+                          ) : (
+                              <>
+                                  <Cloud className="w-3 h-3 mr-1.5" />
+                                  Cloud Connected
+                              </>
+                          )}
+                      </div>
+                      {lastUpdated && <span className="text-xs text-blue-200/80">Last Sync: {lastUpdated.toLocaleTimeString()}</span>}
+                  </div>
+              </div>
+
+              <div className="flex gap-3">
+                  <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
+                  <button onClick={handleDownloadTemplate} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2.5 rounded-xl text-sm font-semibold transition backdrop-blur-md flex items-center gap-2">
+                      <FileDown className="w-4 h-4" /> Template
+                  </button>
+                  <button onClick={() => fileInputRef.current?.click()} className="bg-white text-[#002F6C] hover:bg-blue-50 px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-lg flex items-center gap-2">
+                      <Upload className="w-4 h-4" /> Upload Global
+                  </button>
+              </div>
+          </div>
+      </div>
+
+      {/* 2. STATS GRID */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <ModernStatCard 
+              title="Total Pekerjaan" 
+              value={stats.total} 
+              icon={Briefcase} 
+              colorClass="text-blue-600" 
+              bgClass="bg-blue-100" 
+              onClick={() => setFilterStatus('Total')}
+          />
+           <ModernStatCard 
+              title="Selesai" 
+              value={stats.completed} 
+              subtext={`${stats.completionRate}% Rate`}
+              icon={CheckCircle2} 
+              colorClass="text-green-600" 
+              bgClass="bg-green-100" 
+              onClick={() => setFilterStatus('Completed')}
+          />
+           <ModernStatCard 
+              title="Dalam Proses" 
+              value={stats.pending + stats.inProgress} 
+              icon={Clock} 
+              colorClass="text-yellow-600" 
+              bgClass="bg-yellow-100" 
+              onClick={() => setFilterStatus('In Progress')}
+          />
+           <ModernStatCard 
+              title="Overdue" 
+              value={stats.overdue} 
+              icon={AlertCircle} 
+              colorClass="text-red-600" 
+              bgClass="bg-red-100" 
+              onClick={() => setFilterStatus('Overdue')}
+          />
+      </div>
+
+      {/* 3. ALERTS SECTION */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {stats.overdue > 0 && (
+            <div onClick={() => setFilterStatus('Overdue')} className="bg-red-50 border border-red-100 p-5 rounded-2xl flex items-start gap-4 cursor-pointer hover:bg-red-100 transition shadow-sm group">
+                <div className="bg-red-200 p-3 rounded-xl text-red-600 group-hover:scale-110 transition">
+                    <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                    <h4 className="font-bold text-red-800 text-lg">Perhatian Diperlukan</h4>
+                    <p className="text-red-600/80 text-sm mt-1">Terdapat <strong>{stats.overdue} pekerjaan</strong> yang telah melewati batas waktu (Deadline). Klik untuk penanganan segera.</p>
                 </div>
             </div>
-            <p className="text-gray-500 mt-1">
-                Summary performa dan status pekerjaan terkini. 
-                {lastUpdated && <span className="text-xs ml-2">Updated: {lastUpdated.toLocaleTimeString()}</span>}
-            </p>
-        </div>
-        <div className="flex gap-2">
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept=".csv,.txt" 
-                onChange={handleFileUpload}
-            />
-            <button 
-                onClick={handleDownloadTemplate}
-                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-            >
-                <FileDown className="w-4 h-4 mr-2" /> Template Global
-            </button>
-            <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center px-4 py-2 bg-[#002F6C] text-white rounded-lg hover:bg-blue-900 transition-colors text-sm font-medium shadow-sm"
-            >
-                <Upload className="w-4 h-4 mr-2" /> Upload Data Keseluruhan
-            </button>
-        </div>
-      </div>
-
-      {/* Notifications Area */}
-      <div className="space-y-3">
-        {stats.overdue > 0 && (
-            <div 
-                onClick={() => setFilterStatus('Overdue')}
-                className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start animate-pulse shadow-sm cursor-pointer hover:bg-red-100 transition-colors"
-            >
-            <AlertCircle className="w-6 h-6 text-red-600 mr-3 mt-0.5" />
-            <div className="flex-1">
-                <h4 className="text-red-800 font-bold text-lg">PERHATIAN: {stats.overdue} Pekerjaan Melewati Deadline!</h4>
-                <p className="text-red-700 mt-1">
-                Mohon segera selesaikan pekerjaan yang tertunda. Klik disini untuk melihat detail.
-                </p>
-            </div>
-            </div>
         )}
-
+        
         {stats.warning > 0 && (
-             <div 
-                onClick={() => setFilterStatus('Warning')}
-                className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-md flex items-start shadow-sm cursor-pointer hover:bg-orange-100 transition-colors"
-            >
-            <AlertTriangle className="w-6 h-6 text-orange-500 mr-3 mt-0.5" />
-            <div className="flex-1">
-                <h4 className="text-orange-800 font-bold text-lg">WARNING: {stats.warning} Pekerjaan Deadline H-1 (Segera Habis)</h4>
-                <p className="text-orange-700 mt-1">
-                Pekerjaan ini akan habis waktu deadlinenya hari ini atau besok. Klik untuk melihat detail.
-                </p>
-            </div>
+             <div onClick={() => setFilterStatus('Warning')} className="bg-orange-50 border border-orange-100 p-5 rounded-2xl flex items-start gap-4 cursor-pointer hover:bg-orange-100 transition shadow-sm group">
+                <div className="bg-orange-200 p-3 rounded-xl text-orange-600 group-hover:scale-110 transition">
+                    <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                    <h4 className="font-bold text-orange-800 text-lg">Mendekati Deadline</h4>
+                    <p className="text-orange-600/80 text-sm mt-1">Ada <strong>{stats.warning} pekerjaan</strong> yang harus diselesaikan hari ini atau besok. Prioritaskan segera.</p>
+                </div>
             </div>
         )}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div 
-            onClick={() => setFilterStatus('Total')}
-            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
-        >
-          <div className="p-3 rounded-full bg-blue-50 text-blue-600 mb-2 group-hover:bg-blue-100 transition-colors">
-            <CalendarDays className="w-6 h-6" />
+      {/* 4. CHARTS SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Bar Chart */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-blue-600" /> Distribusi Kategori
+                  </h3>
+                  <div className="flex gap-2 text-xs">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#002F6C]"></span> Pekerjaan</span>
+                  </div>
+              </div>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={barData} onClick={(data) => data?.activeLabel && setFilterStatus(String(data.activeLabel))}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#888'}} interval={0} height={40} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#888'}} />
+                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} />
+                        <Bar dataKey="count" fill="#002F6C" radius={[6, 6, 0, 0]} barSize={40} cursor="pointer" />
+                    </BarChart>
+                </ResponsiveContainer>
+              </div>
           </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-          <p className="text-gray-500 text-xs">Total Pekerjaan</p>
-        </div>
 
-        <div 
-            onClick={() => setFilterStatus('Completed')}
-            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
-        >
-          <div className="p-3 rounded-full bg-green-50 text-green-600 mb-2 group-hover:bg-green-100 transition-colors">
-            <CheckCircle2 className="w-6 h-6" />
+          {/* Pie Chart */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+               <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-600" /> Status Overall
+               </h3>
+               <div className="h-72 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={pieData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={85}
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {pieData.map((_, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
+                                ))}
+                            </Pie>
+                            <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                        </PieChart>
+                    </ResponsiveContainer>
+                    {/* Center Text */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -mt-4 text-center pointer-events-none">
+                        <span className="block text-3xl font-bold text-gray-800">{stats.total}</span>
+                        <span className="text-xs text-gray-400">Total Data</span>
+                    </div>
+               </div>
           </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
-          <p className="text-gray-500 text-xs">Selesai</p>
-        </div>
-
-        <div 
-            onClick={() => setFilterStatus('In Progress')}
-            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
-        >
-          <div className="p-3 rounded-full bg-yellow-50 text-yellow-600 mb-2 group-hover:bg-yellow-100 transition-colors">
-            <Clock className="w-6 h-6" />
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.pending + stats.inProgress}</p>
-          <p className="text-gray-500 text-xs">Dalam Proses</p>
-        </div>
-
-        <div 
-            onClick={() => setFilterStatus('Overdue')}
-            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
-        >
-          <div className="p-3 rounded-full bg-red-50 text-red-600 mb-2 group-hover:bg-red-100 transition-colors">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
-          <p className="text-gray-500 text-xs">Melewati Deadline</p>
-        </div>
-
-        <div 
-            onClick={() => setFilterStatus('Hold')}
-            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
-        >
-          <div className="p-3 rounded-full bg-purple-50 text-purple-600 mb-2 group-hover:bg-purple-100 transition-colors">
-            <PauseCircle className="w-6 h-6" />
-          </div>
-          <p className="text-2xl font-bold text-purple-800">{stats.hold}</p>
-          <p className="text-gray-500 text-xs">Hold</p>
-        </div>
-
-        <div 
-            onClick={() => setFilterStatus('Cancel')}
-            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all group"
-        >
-          <div className="p-3 rounded-full bg-gray-100 text-gray-600 mb-2 group-hover:bg-gray-200 transition-colors">
-            <XCircle className="w-6 h-6" />
-          </div>
-          <p className="text-2xl font-bold text-gray-600">{stats.cancel}</p>
-          <p className="text-gray-500 text-xs">Cancel</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Status Distribusi</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Pekerjaan per Kategori (Klik untuk detail)</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={barData} 
-                onClick={(data) => {
-                  if (data && data.activeLabel) {
-                    setFilterStatus(String(data.activeLabel));
-                  }
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" fontSize={10} interval={0} tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip cursor={{fill: 'transparent'}} />
-                <Bar 
-                    dataKey="count" 
-                    fill="#002F6C" 
-                    radius={[4, 4, 0, 0]} 
-                    cursor="pointer"
-                    onClick={(data, index) => {
-                        // Fallback click handler directly on the Bar
-                        if (data && data.name) {
-                             setFilterStatus(data.name as string);
-                        }
-                    }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
     </div>
   );
 };
+
