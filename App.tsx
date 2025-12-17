@@ -12,7 +12,7 @@ import { AUTHORIZED_USERS, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBL
 import { api } from './services/api';
 import { driveApi } from './services/driveApi';
 import emailjs from '@emailjs/browser';
-import { Database, Settings, CloudOff, Cloud, CheckCircle, Save } from 'lucide-react';
+import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi } from 'lucide-react';
 
 // Storage Key Constants
 const STORAGE_MODE_KEY = 'jne_storage_mode'; // 'JSONBIN' | 'GAS' | 'LOCAL'
@@ -41,7 +41,6 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Storage Configuration State
-  // Default to GAS if no preference is saved, as we now have a valid link
   const [storageMode, setStorageMode] = useState<string>(() => localStorage.getItem(STORAGE_MODE_KEY) || 'GAS');
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [customScriptUrl, setCustomScriptUrl] = useState(() => localStorage.getItem('jne_custom_script_url') || '');
@@ -59,15 +58,18 @@ function App() {
 
     setIsLoading(true);
 
-    // 1. Always load from LocalStorage first for instant UX
+    // 1. Always load from LocalStorage first for instant UX (Persistence)
     const localData = localStorage.getItem(DATA_KEY);
     if (localData) {
         try {
             const parsed = JSON.parse(localData);
-            setJobs(parsed.jobs || []);
-            setUsers(parsed.users || AUTHORIZED_USERS);
-            setValidationLogs(parsed.validationLogs || []);
-            setLastUpdated(new Date());
+            // Only update state from local if empty to avoid jitter, 
+            // OR if we assume local is "fresh enough" until cloud confirms
+            if (jobs.length === 0) {
+                setJobs(parsed.jobs || []);
+                setUsers(parsed.users || AUTHORIZED_USERS);
+                setValidationLogs(parsed.validationLogs || []);
+            }
         } catch (e) {
             console.error("Local data corrupted", e);
         }
@@ -92,13 +94,11 @@ function App() {
       if (data) {
         setConnectionError(false);
         
-        // Merge Strategy: Simple overwrite from server implies server is truth
-        // In a real app, you might want more complex merging logic
+        // Merge Strategy: Cloud is authority
         if (data.jobs && Array.isArray(data.jobs)) setJobs(data.jobs);
         if (data.validationLogs && Array.isArray(data.validationLogs)) setValidationLogs(data.validationLogs);
         
         if (data.users && Array.isArray(data.users)) {
-             // Preserve currently logged in session password if needed, but here we trust server
             const mergedUsers = AUTHORIZED_USERS.map(defaultUser => {
                 const cloudUser = data.users.find((u: User) => u.email === defaultUser.email);
                 return { ...defaultUser, password: cloudUser ? cloudUser.password : defaultUser.password };
@@ -116,16 +116,17 @@ function App() {
         setLastUpdated(new Date());
       }
     } catch (error) {
-      // Quietly handle error, update UI indicator but don't spam console.error
+      // Quietly handle error, update UI indicator
+      // Do NOT clear data here. Local data persists.
       setConnectionError(true);
     } finally {
       setIsLoading(false);
     }
-  }, [isSaving, storageMode]);
+  }, [isSaving, storageMode]); // Removed jobs from dependency to prevent loop
 
   useEffect(() => {
     loadData();
-    const intervalId = setInterval(loadData, 30000); // Sync every 30s instead of 5s to save quota
+    const intervalId = setInterval(loadData, 30000); 
     return () => clearInterval(intervalId);
   }, [loadData]);
 
@@ -167,8 +168,6 @@ function App() {
     } catch (error) {
         console.warn("Save failed (will retry next sync):", error);
         setConnectionError(true);
-        // Do NOT alert user aggressively. The UI indicator is enough.
-        // Data is safe in LocalStorage.
     } finally {
         setIsSaving(false);
     }
@@ -356,8 +355,8 @@ function App() {
                 onUpdateJob={handleUpdateJob}
                 isLoading={isLoading}
                 isSaving={isSaving}
-                lastUpdated={lastUpdated}
                 connectionError={connectionError}
+                lastUpdated={lastUpdated}
                 currentUser={currentUser}
                 customTitle={isReportSuratSummary ? "Summary Report Surat" : undefined}
             />
@@ -380,6 +379,42 @@ function App() {
       return null;
   };
 
+  // Status Badge Logic
+  let statusBadge;
+  if (connectionError) {
+      if (storageMode === 'LOCAL') {
+          statusBadge = (
+              <span className="flex items-center text-gray-600 bg-gray-100 px-3 py-1 rounded-full border border-gray-200 text-xs font-medium">
+                <Database className="w-3 h-3 mr-1.5" />
+                Offline Mode (Local Storage)
+              </span>
+          );
+      } else if (jobs.length > 0) {
+          // If we have data but sync failed, show Orange "Local Mode" instead of Red "Error"
+          statusBadge = (
+              <span className="flex items-center text-orange-700 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 text-xs font-medium" title="Gagal sync ke cloud, menggunakan data lokal. Data aman.">
+                <CloudOff className="w-3 h-3 mr-1.5" />
+                Local Mode (Sync Retrying...)
+              </span>
+          );
+      } else {
+          // Only show red if we have NO data and NO connection
+          statusBadge = (
+              <span className="flex items-center text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 text-xs font-medium">
+                <Wifi className="w-3 h-3 mr-1.5" />
+                Connection Error
+              </span>
+          );
+      }
+  } else {
+       statusBadge = (
+          <span className="flex items-center text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100 text-xs font-medium">
+             <Cloud className="w-3 h-3 mr-1.5" />
+             {isSaving ? 'Saving to Cloud...' : 'Cloud Connected'}
+          </span>
+       );
+  }
+
   return (
     <Layout 
       activeCategory={activeCategory} 
@@ -390,18 +425,12 @@ function App() {
       onChangePassword={handleChangePassword}
     >
         {/* Header Status Bar */}
-        <div className="flex justify-between items-center mb-4 bg-white p-2 rounded-lg shadow-sm border border-gray-100">
-           <div className="flex items-center text-sm text-gray-600 px-2">
-               <span className="font-semibold mr-2">Status Penyimpanan:</span>
-               {connectionError ? (
-                   <span className="flex items-center text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-                       <CloudOff className="w-3 h-3 mr-1" />
-                       {storageMode === 'LOCAL' ? 'Offline Mode (Aman)' : 'Gagal Sync Cloud (Data Tersimpan Lokal)'}
-                   </span>
-               ) : (
-                    <span className="flex items-center text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                       <CheckCircle className="w-3 h-3 mr-1" />
-                       {isSaving ? 'Menyimpan...' : 'Tersimpan & Terhubung'}
+        <div className="flex justify-between items-center mb-6 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+           <div className="flex items-center gap-3">
+               {statusBadge}
+               {lastUpdated && !connectionError && (
+                   <span className="text-xs text-gray-400 hidden md:inline-block">
+                       Last Sync: {lastUpdated.toLocaleTimeString()}
                    </span>
                )}
            </div>
@@ -410,9 +439,8 @@ function App() {
                 onClick={() => setShowStorageModal(true)}
                 className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
            >
-               <Database className="w-3 h-3" />
+               <Settings className="w-3 h-3 text-gray-400" />
                {storageMode === 'GAS' ? 'Google Script' : storageMode === 'LOCAL' ? 'Local Only' : 'Demo Server'}
-               <Settings className="w-3 h-3 ml-1 text-gray-400" />
            </button>
         </div>
 
@@ -431,24 +459,10 @@ function App() {
                   
                   <div className="p-6 space-y-6">
                       <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                          Pilih metode penyimpanan data Anda. Untuk penggunaan jangka panjang, disarankan menggunakan <strong>Google Apps Script</strong>.
+                          Data Anda disimpan secara lokal di browser ini. Hubungkan ke Google Script untuk sinkronisasi antar perangkat.
                       </p>
 
                       <div className="space-y-4">
-                          {/* Option 1: Demo Server */}
-                          <div 
-                              onClick={() => setStorageMode('JSONBIN')}
-                              className={`p-4 rounded-lg border cursor-pointer transition-all flex items-start gap-3 ${storageMode === 'JSONBIN' ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-blue-300'}`}
-                          >
-                              <div className={`mt-1 p-1 rounded-full ${storageMode === 'JSONBIN' ? 'bg-blue-600' : 'bg-gray-200'}`}>
-                                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                              </div>
-                              <div>
-                                  <h4 className="font-bold text-gray-800">Demo Server (JSONBin)</h4>
-                                  <p className="text-xs text-gray-500 mt-1">Server publik gratis dengan limitasi. Data bisa dihapus sewaktu-waktu. Gunakan hanya untuk testing.</p>
-                              </div>
-                          </div>
-
                           {/* Option 2: Google Script */}
                           <div 
                               onClick={() => setStorageMode('GAS')}
@@ -458,12 +472,12 @@ function App() {
                                   <div className="w-2 h-2 bg-white rounded-full"></div>
                               </div>
                               <div className="flex-1">
-                                  <h4 className="font-bold text-gray-800">Google Apps Script (Pribadi)</h4>
-                                  <p className="text-xs text-gray-500 mt-1">Simpan data di Google Drive/Sheet Anda sendiri. Aman, Gratis, Tanpa Limit.</p>
+                                  <h4 className="font-bold text-gray-800">Google Apps Script (Recommended)</h4>
+                                  <p className="text-xs text-gray-500 mt-1">Simpan data di Google Sheet pribadi Anda. Gratis & Aman.</p>
                                   
                                   {storageMode === 'GAS' && (
                                       <div className="mt-3 animate-in fade-in">
-                                          <label className="block text-xs font-bold text-gray-700 mb-1">Masukkan URL Web App Google Script Anda:</label>
+                                          <label className="block text-xs font-bold text-gray-700 mb-1">URL Web App Google Script:</label>
                                           <input 
                                             type="text" 
                                             className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:border-green-500 focus:outline-none"
@@ -472,7 +486,6 @@ function App() {
                                             onChange={(e) => setCustomScriptUrl(e.target.value)}
                                             onClick={(e) => e.stopPropagation()}
                                           />
-                                          <p className="text-[10px] text-gray-400 mt-1 italic">Pastikan script dideploy sebagai 'Web App' dengan akses 'Anyone'.</p>
                                       </div>
                                   )}
                               </div>
@@ -488,7 +501,7 @@ function App() {
                               </div>
                               <div>
                                   <h4 className="font-bold text-gray-800">Local Only (Offline)</h4>
-                                  <p className="text-xs text-gray-500 mt-1">Data hanya disimpan di browser komputer ini. Tidak perlu internet, tapi data tidak bisa diakses dari komputer lain.</p>
+                                  <p className="text-xs text-gray-500 mt-1">Hanya di browser ini. Tidak butuh internet.</p>
                               </div>
                           </div>
                       </div>
