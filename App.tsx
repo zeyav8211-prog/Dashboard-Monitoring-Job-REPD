@@ -12,7 +12,7 @@ import { AUTHORIZED_USERS, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBL
 import { api } from './services/api';
 import { driveApi } from './services/driveApi';
 import emailjs from '@emailjs/browser';
-import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi } from 'lucide-react';
+import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi, WifiOff, RefreshCw, UploadCloud } from 'lucide-react';
 
 // Storage Key Constants
 const STORAGE_MODE_KEY = 'jne_storage_mode'; // 'JSONBIN' | 'GAS' | 'LOCAL'
@@ -44,9 +44,10 @@ function App() {
   const [storageMode, setStorageMode] = useState<string>(() => localStorage.getItem(STORAGE_MODE_KEY) || 'GAS');
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [customScriptUrl, setCustomScriptUrl] = useState(() => localStorage.getItem('jne_custom_script_url') || '');
+  const [isMigrating, setIsMigrating] = useState(false);
 
   // --- DATA LOADING LOGIC ---
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (isManualRetry = false) => {
     if (isSaving) return;
     
     // Offline Check
@@ -56,19 +57,19 @@ function App() {
         return;
     }
 
-    setIsLoading(true);
+    if (isManualRetry) setIsLoading(true);
 
     // 1. Always load from LocalStorage first for instant UX (Persistence)
     const localData = localStorage.getItem(DATA_KEY);
     if (localData) {
         try {
             const parsed = JSON.parse(localData);
-            // Only update state from local if empty to avoid jitter, 
-            // OR if we assume local is "fresh enough" until cloud confirms
-            if (jobs.length === 0) {
+            // Update local state immediately if empty, or if we are in local mode
+            if (jobs.length === 0 || storageMode === 'LOCAL') {
                 setJobs(parsed.jobs || []);
                 setUsers(parsed.users || AUTHORIZED_USERS);
                 setValidationLogs(parsed.validationLogs || []);
+                if (storageMode === 'LOCAL') setLastUpdated(new Date());
             }
         } catch (e) {
             console.error("Local data corrupted", e);
@@ -117,16 +118,15 @@ function App() {
       }
     } catch (error) {
       // Quietly handle error, update UI indicator
-      // Do NOT clear data here. Local data persists.
       setConnectionError(true);
     } finally {
       setIsLoading(false);
     }
-  }, [isSaving, storageMode]); // Removed jobs from dependency to prevent loop
+  }, [isSaving, storageMode, jobs.length]); 
 
   useEffect(() => {
     loadData();
-    const intervalId = setInterval(loadData, 30000); 
+    const intervalId = setInterval(() => loadData(), 30000); 
     return () => clearInterval(intervalId);
   }, [loadData]);
 
@@ -320,7 +320,39 @@ function App() {
           localStorage.setItem('jne_custom_script_url', customScriptUrl);
       }
       setShowStorageModal(false);
-      loadData(); // Reload with new mode
+      loadData(true); // Force reload with new mode
+  };
+
+  // Fungsi Migrasi: Upload data state saat ini (local/demo) ke GAS
+  const handleMigrateToGAS = async () => {
+    if (!customScriptUrl && !GOOGLE_SCRIPT_URL) {
+        alert("Masukkan URL Google Script terlebih dahulu!");
+        return;
+    }
+    
+    // Simpan URL sementara agar driveApi menggunakan URL yang baru diketik
+    localStorage.setItem('jne_custom_script_url', customScriptUrl);
+    
+    setIsMigrating(true);
+    try {
+        // Kita kirim data yang ada di MEMORY (jobs, users, logs) ke Script
+        const success = await driveApi.saveData({ jobs, users, validationLogs });
+        if (success) {
+            alert("SUKSES! Semua data di layar berhasil disalin ke Google Sheet.");
+            // Otomatis pindah mode
+            setStorageMode('GAS');
+            localStorage.setItem(STORAGE_MODE_KEY, 'GAS');
+            setLastUpdated(new Date());
+            setConnectionError(false);
+            setShowStorageModal(false);
+        } else {
+            alert("Gagal upload. Pastikan URL benar, deployment 'Web App' sudah 'Anyone', dan script tidak error.");
+        }
+    } catch (e) {
+        alert("Error saat migrasi: " + e);
+    } finally {
+        setIsMigrating(false);
+    }
   };
 
   const visibleJobs = useMemo(() => {
@@ -379,30 +411,30 @@ function App() {
       return null;
   };
 
-  // Status Badge Logic
+  // Status Badge Logic - Enhanced for better UX
   let statusBadge;
   if (connectionError) {
       if (storageMode === 'LOCAL') {
           statusBadge = (
               <span className="flex items-center text-gray-600 bg-gray-100 px-3 py-1 rounded-full border border-gray-200 text-xs font-medium">
                 <Database className="w-3 h-3 mr-1.5" />
-                Offline Mode (Local Storage)
+                Offline Mode (Local)
               </span>
           );
-      } else if (jobs.length > 0) {
-          // If we have data but sync failed, show Orange "Local Mode" instead of Red "Error"
+      } else if (jobs.length > 0 || users.length > 0) {
+          // FRIENDLIER UI: If we have data, don't show scary red error. Show warning/offline mode.
           statusBadge = (
-              <span className="flex items-center text-orange-700 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 text-xs font-medium" title="Gagal sync ke cloud, menggunakan data lokal. Data aman.">
-                <CloudOff className="w-3 h-3 mr-1.5" />
-                Local Mode (Sync Retrying...)
+              <span className="flex items-center text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 text-xs font-medium animate-in fade-in" title="Koneksi cloud terganggu, namun data tersimpan aman di browser (Lokal).">
+                <WifiOff className="w-3 h-3 mr-1.5" />
+                Mode Offline (Data Lokal Aktif)
               </span>
           );
       } else {
-          // Only show red if we have NO data and NO connection
+          // Critical Error (No Data & No Connection)
           statusBadge = (
-              <span className="flex items-center text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 text-xs font-medium">
+              <span className="flex items-center text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 text-xs font-medium animate-pulse">
                 <Wifi className="w-3 h-3 mr-1.5" />
-                Connection Error
+                Gagal Terhubung
               </span>
           );
       }
@@ -410,7 +442,7 @@ function App() {
        statusBadge = (
           <span className="flex items-center text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100 text-xs font-medium">
              <Cloud className="w-3 h-3 mr-1.5" />
-             {isSaving ? 'Saving to Cloud...' : 'Cloud Connected'}
+             {isSaving ? 'Menyimpan...' : 'Terhubung ke Cloud'}
           </span>
        );
   }
@@ -428,10 +460,24 @@ function App() {
         <div className="flex justify-between items-center mb-6 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
            <div className="flex items-center gap-3">
                {statusBadge}
-               {lastUpdated && !connectionError && (
-                   <span className="text-xs text-gray-400 hidden md:inline-block">
-                       Last Sync: {lastUpdated.toLocaleTimeString()}
+               
+               {/* Last Updated Info */}
+               {lastUpdated && (
+                   <span className={`text-xs ${connectionError ? 'text-amber-600/70' : 'text-gray-400'} hidden md:inline-block`}>
+                       Update Terakhir: {lastUpdated.toLocaleTimeString()}
                    </span>
+               )}
+
+               {/* Manual Reconnect Button - Only show if error */}
+               {connectionError && (
+                   <button 
+                    onClick={() => loadData(true)}
+                    disabled={isLoading}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-transparent hover:border-blue-100 transition-colors"
+                   >
+                       <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                       Reconnect
+                   </button>
                )}
            </div>
            
@@ -449,7 +495,7 @@ function App() {
       {/* STORAGE CONFIG MODAL */}
       {showStorageModal && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
                   <div className="bg-[#002F6C] p-4 flex justify-between items-center text-white">
                       <h3 className="font-bold flex items-center gap-2">
                           <Database className="w-5 h-5" /> Konfigurasi Penyimpanan
@@ -459,7 +505,7 @@ function App() {
                   
                   <div className="p-6 space-y-6">
                       <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                          Data Anda disimpan secara lokal di browser ini. Hubungkan ke Google Script untuk sinkronisasi antar perangkat.
+                          Pilih tempat penyimpanan data aplikasi Anda.
                       </p>
 
                       <div className="space-y-4">
@@ -476,16 +522,33 @@ function App() {
                                   <p className="text-xs text-gray-500 mt-1">Simpan data di Google Sheet pribadi Anda. Gratis & Aman.</p>
                                   
                                   {storageMode === 'GAS' && (
-                                      <div className="mt-3 animate-in fade-in">
-                                          <label className="block text-xs font-bold text-gray-700 mb-1">URL Web App Google Script:</label>
-                                          <input 
-                                            type="text" 
-                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:border-green-500 focus:outline-none"
-                                            placeholder="https://script.google.com/macros/s/.../exec"
-                                            value={customScriptUrl || GOOGLE_SCRIPT_URL}
-                                            onChange={(e) => setCustomScriptUrl(e.target.value)}
-                                            onClick={(e) => e.stopPropagation()}
-                                          />
+                                      <div className="mt-3 animate-in fade-in space-y-3">
+                                          <div>
+                                              <label className="block text-xs font-bold text-gray-700 mb-1">URL Web App Google Script:</label>
+                                              <input 
+                                                type="text" 
+                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:border-green-500 focus:outline-none"
+                                                placeholder="https://script.google.com/macros/s/.../exec"
+                                                value={customScriptUrl || GOOGLE_SCRIPT_URL}
+                                                onChange={(e) => setCustomScriptUrl(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                              />
+                                          </div>
+                                          
+                                          {/* MIGRATION BUTTON */}
+                                          <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
+                                             <p className="text-[10px] text-orange-800 mb-2 font-medium">
+                                                Ingin memindahkan data yang ada di Demo/Local ke Google Sheet baru?
+                                             </p>
+                                             <button
+                                                onClick={(e) => { e.stopPropagation(); handleMigrateToGAS(); }}
+                                                disabled={isMigrating}
+                                                className="w-full py-2 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                                             >
+                                                {isMigrating ? <RefreshCw className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-3 h-3"/>}
+                                                Upload Data di Layar ke Google Sheet
+                                             </button>
+                                          </div>
                                       </div>
                                   )}
                               </div>
@@ -511,7 +574,7 @@ function App() {
                             onClick={() => handleStorageChange(storageMode)}
                             className="px-6 py-2 bg-[#002F6C] text-white rounded-lg font-bold hover:bg-blue-900 transition flex items-center gap-2"
                           >
-                              <Save className="w-4 h-4" /> Simpan Pengaturan
+                              <Save className="w-4 h-4" /> Simpan & Muat Ulang
                           </button>
                       </div>
                   </div>
