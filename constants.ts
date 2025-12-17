@@ -1,4 +1,3 @@
-
 import { MenuStructure, User } from './types';
 
 export const MENU_STRUCTURE: MenuStructure = {
@@ -38,7 +37,7 @@ export const JNE_BLUE = "#002F6C";
 export const LOGO_URL = "https://lh3.googleusercontent.com/d/19L5QBkcuSDrfWX_uqZGVUkpAlriZijp1";
 
 // Google Apps Script Configuration (Backup/Alternative)
-export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0EwNykAaEfujJ3OK7glHks5OtNpZfEV6XcsDKtv1G5qcLdQglmUFzd4yiaZsRkBkg/exec";
+export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3kexl-gtkuEus_gWmE-ffJ4DzHQaDgjMid8l3rMDJbTT9PGagKjfpqdv2D1DztuCu/exec";
 
 // JSONBin.io Configuration (Primary)
 export const JSONBIN_BIN_ID = "692843aa43b1c97be9c875fd";
@@ -59,3 +58,4 @@ export const AUTHORIZED_USERS: User[] = [
   { email: "adm.ppdd@jne.co.id", name: "Admin PPDD", role: "User", password: "000000" },
   { email: "davis.gunawan@jne.co.id", name: "Davis Gunawan", role: "Admin", password: "000000" }
 ];
+
