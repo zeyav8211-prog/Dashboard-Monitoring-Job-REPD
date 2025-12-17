@@ -13,45 +13,58 @@ interface JsonBinResponse {
   metadata: any;
 }
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const api = {
   /**
-   * Fetch data from JSONBin.io
+   * Fetch data from JSONBin.io with retry
    */
   async getData(): Promise<AppData | null> {
-    try {
-      const response = await fetch(JSONBIN_URL, {
-        method: 'GET',
-        headers: {
-          'X-Master-Key': JSONBIN_API_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      
-      const data: JsonBinResponse = await response.json();
-      
-      // JSONBin v3 returns the actual data inside the "record" property
-      const record = data.record || {} as Partial<AppData>;
-      
-      return {
-        jobs: record.jobs || [],
-        users: record.users || [],
-        validationLogs: record.validationLogs || []
-      };
+    if (!navigator.onLine) return null;
 
-    } catch (error) {
-      console.error('Error fetching data from JSONBin:', error);
-      throw error;
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        const response = await fetch(JSONBIN_URL, {
+          method: 'GET',
+          headers: {
+            'X-Master-Key': JSONBIN_API_KEY,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
+        
+        const data: JsonBinResponse = await response.json();
+        
+        // JSONBin v3 returns the actual data inside the "record" property
+        const record = data.record || {} as Partial<AppData>;
+        
+        return {
+          jobs: record.jobs || [],
+          users: record.users || [],
+          validationLogs: record.validationLogs || []
+        };
+      } catch (error) {
+        retries--;
+        if (retries === 0) {
+            console.error('Error fetching data from JSONBin:', error);
+            throw error;
+        }
+        await wait(1000);
+      }
     }
+    return null;
   },
 
   /**
    * Save data to JSONBin.io
    */
   async saveData(data: AppData): Promise<boolean> {
+    if (!navigator.onLine) return false;
+
     try {
       const response = await fetch(JSONBIN_URL, {
         method: 'PUT',
@@ -73,3 +86,4 @@ export const api = {
     }
   }
 };
+
