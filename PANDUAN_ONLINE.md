@@ -64,7 +64,13 @@ Agar Script bisa diakses oleh Aplikasi Dashboard:
    - **Execute as**: `Me` (Email Anda)
    - **Who has access**: `Anyone` (Siapa Saja) <--- JANGAN SALAH PILIH
 4. Klik **Deploy**.
-5. Berikan izin akses (Review Permissions -> Pilih Akun -> Advanced -> Go to ... (unsafe) -> Allow).
+5. **Authorize Access (Pemberian Izin):**
+   - Klik "Review Permissions".
+   - Pilih Akun Google Anda.
+   - **JIKA MUNCUL LAYAR MERAH "Google hasn't verified this app":**
+     1. Klik tulisan **Advanced** (Lanjutan) di kiri bawah.
+     2. Klik link **Go to ... (unsafe)** di bagian paling bawah.
+     3. Ketik "Continue" jika diminta, lalu klik **Allow** (Izinkan).
 6. **Copy URL Web App** yang muncul (berakhiran `/exec`).
 
 ### Langkah 4: Koneksikan
@@ -75,3 +81,4 @@ Agar Script bisa diakses oleh Aplikasi Dashboard:
 5. Klik **Simpan**.
 
 Status akan berubah menjadi **Hijau (Cloud Connected)**.
+
