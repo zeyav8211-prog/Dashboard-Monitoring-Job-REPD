@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,10 +10,7 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #e0f2fe; /* Sky Blue Base */
-        background-image: 
-          linear-gradient(to bottom right, #e0f2fe, #ecfeff),
-          url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23002f6c' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        background-color: #f3f4f6;
       }
       .scrollbar-hide::-webkit-scrollbar {
           display: none;
@@ -20,6 +18,20 @@
       .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;
+      }
+      @keyframes blink-red {
+        0%, 100% { background-color: rgba(239, 68, 68, 1); color: white; }
+        50% { background-color: rgba(254, 226, 226, 1); color: #b91c1c; }
+      }
+      @keyframes blink-orange {
+        0%, 100% { background-color: rgba(245, 158, 11, 1); color: white; }
+        50% { background-color: rgba(254, 243, 199, 1); color: #92400e; }
+      }
+      .animate-blink-red {
+        animation: blink-red 1s infinite;
+      }
+      .animate-blink-orange {
+        animation: blink-orange 1.5s infinite;
       }
     </style>
 <script type="importmap">
@@ -31,8 +43,7 @@
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
     "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
     "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "@emailjs/browser": "https://aistudiocdn.com/@emailjs/browser@^4.4.1"
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>

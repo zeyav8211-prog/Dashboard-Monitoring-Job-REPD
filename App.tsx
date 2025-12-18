@@ -5,27 +5,16 @@ import { DashboardSummary } from './components/DashboardSummary';
 import { JobManager } from './components/JobManager';
 import { Login } from './components/Login';
 import { TarifValidator } from './components/TarifValidator';
-import { CompetitorAnalysis } from './components/CompetitorAnalysis';
-import { ValidationHistory } from './components/ValidationHistory';
+import { ReportSuratManager } from './components/ReportSuratManager';
+import { CompetitorManager } from './components/CompetitorManager';
 import { Job, User, ValidationLog } from './types';
-import { AUTHORIZED_USERS, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY, GOOGLE_SCRIPT_URL } from './constants';
+import { AUTHORIZED_USERS } from './constants';
 import { api } from './services/api';
-import { driveApi } from './services/driveApi';
-import emailjs from '@emailjs/browser';
-import { Database, Settings, CloudOff, Cloud, CheckCircle, Save, Wifi, WifiOff, RefreshCw, UploadCloud, FileJson, RotateCcw } from 'lucide-react';
-
-// Storage Key Constants
-const STORAGE_MODE_KEY = 'jne_storage_mode'; // 'JSONBIN' | 'GAS' | 'LOCAL'
-const DATA_KEY = 'jne_app_data_backup';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-        const saved = localStorage.getItem('jne_current_user');
-        return saved ? JSON.parse(saved) : null;
-    } catch {
-        return null;
-    }
+    const saved = localStorage.getItem('jne_current_user');
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -40,147 +29,73 @@ function App() {
   const [connectionError, setConnectionError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Storage Configuration State
-  const [storageMode, setStorageMode] = useState<string>(() => localStorage.getItem(STORAGE_MODE_KEY) || 'GAS');
-  const [showStorageModal, setShowStorageModal] = useState(false);
-  const [customScriptUrl, setCustomScriptUrl] = useState(() => localStorage.getItem('jne_custom_script_url') || '');
-  const [isMigrating, setIsMigrating] = useState(false);
-
-  // --- DATA LOADING LOGIC ---
-  const loadData = useCallback(async (isManualRetry = false) => {
+  const fetchData = useCallback(async () => {
     if (isSaving) return;
-    
-    // Offline Check
-    if (!navigator.onLine) {
-        setIsLoading(false);
-        setConnectionError(true);
-        return;
-    }
 
-    if (isManualRetry) setIsLoading(true);
-
-    // 1. Always load from LocalStorage first for instant UX (Persistence)
-    const localData = localStorage.getItem(DATA_KEY);
-    if (localData) {
-        try {
-            const parsed = JSON.parse(localData);
-            // ONLY overwrite state if jobs are empty OR we are in Local mode OR it's the initial load
-            // This prevents overwriting unsaved work if the cloud sync fails temporarily
-            if (jobs.length === 0 || storageMode === 'LOCAL' || isManualRetry) {
-                if (parsed.jobs && parsed.jobs.length > 0) {
-                    setJobs(parsed.jobs);
-                    if (parsed.users) setUsers(parsed.users);
-                    if (parsed.validationLogs) setValidationLogs(parsed.validationLogs);
-                    setLastUpdated(new Date());
-                }
-            }
-        } catch (e) {
-            console.error("Local data corrupted", e);
-        }
-    }
-
-    // 2. If Local Only mode, stop here
-    if (storageMode === 'LOCAL') {
-        setIsLoading(false);
-        setConnectionError(false);
-        return;
-    }
-
-    // 3. Try Fetching from Cloud to Sync
     try {
-      let data = null;
-      if (storageMode === 'GAS') {
-          data = await driveApi.getData();
-      } else {
-          data = await api.getData();
-      }
-
+      const data = await api.getData();
       if (data) {
         setConnectionError(false);
         
-        // Merge Strategy: Cloud is authority
-        // BUT, if Cloud is empty and Local has data (and we are just setting up), we might want to preserve Local
-        // For now, we assume Cloud wins if it has data.
-        
         if (data.jobs && Array.isArray(data.jobs)) {
-            // Only overwrite if cloud actually has data, or if we are strictly syncing
-            // If cloud is empty array [], and we have local data, we might be in a "New Sheet" scenario
-            // In that case, we keep local data visible so user can "Migrate" it.
-            if (data.jobs.length > 0 || jobs.length === 0) {
-                 setJobs(data.jobs);
-                 if (data.validationLogs && Array.isArray(data.validationLogs)) setValidationLogs(data.validationLogs);
-                 
-                 if (data.users && Array.isArray(data.users)) {
-                    const mergedUsers = AUTHORIZED_USERS.map(defaultUser => {
-                        const cloudUser = data.users.find((u: User) => u.email === defaultUser.email);
-                        return { ...defaultUser, password: cloudUser ? cloudUser.password : defaultUser.password };
-                    });
-                    setUsers(mergedUsers);
-                }
-            }
+            setJobs(data.jobs);
+        }
+
+        if (data.validationLogs && Array.isArray(data.validationLogs)) {
+            setValidationLogs(data.validationLogs);
+        }
+
+        if (data.users && Array.isArray(data.users)) {
+            const mergedUsers = AUTHORIZED_USERS.map(defaultUser => {
+                const cloudUser = data.users.find((u: User) => u.email === defaultUser.email);
+                return {
+                    ...defaultUser, 
+                    password: cloudUser ? cloudUser.password : defaultUser.password
+                };
+            });
+            setUsers(mergedUsers);
         }
         
-        // Update Local Backup immediately after successful fetch
-        if (data.jobs && data.jobs.length > 0) {
-            localStorage.setItem(DATA_KEY, JSON.stringify({
-                jobs: data.jobs || [],
-                users: data.users || [],
-                validationLogs: data.validationLogs || []
-            }));
-            setLastUpdated(new Date());
-        }
+        setLastUpdated(new Date());
       }
     } catch (error) {
-      // Quietly handle error, update UI indicator
+      console.error("Fetch error:", error);
       setConnectionError(true);
     } finally {
       setIsLoading(false);
     }
-  }, [isSaving, storageMode]); // Removed jobs.length dependency to prevent loop
+  }, [isSaving]);
 
   useEffect(() => {
-    loadData();
-    const intervalId = setInterval(() => loadData(), 30000); 
+    fetchData(); 
+    const intervalId = setInterval(() => {
+        fetchData();
+    }, 5000); 
     return () => clearInterval(intervalId);
-  }, [loadData]);
+  }, [fetchData]);
 
-  // --- DATA SAVING LOGIC ---
   const saveToCloud = async (newJobs: Job[], newUsers: User[], newLogs: ValidationLog[]) => {
     setIsSaving(true);
-    
-    // 1. Optimistic Update (UI)
     setJobs(newJobs);
     setUsers(newUsers);
     setValidationLogs(newLogs);
 
-    // 2. Save to Local Storage (Safety Net)
-    const payload = { jobs: newJobs, users: newUsers, validationLogs: newLogs };
-    localStorage.setItem(DATA_KEY, JSON.stringify(payload));
-
-    // 3. If Local Only, we are done
-    if (storageMode === 'LOCAL') {
-        setLastUpdated(new Date());
-        setIsSaving(false);
-        return;
-    }
-
-    // 4. Save to Cloud
     try {
-        let success = false;
-        if (storageMode === 'GAS') {
-            success = await driveApi.saveData(payload);
-        } else {
-            success = await api.saveData(payload);
-        }
+        const success = await api.saveData({
+            jobs: newJobs,
+            users: newUsers,
+            validationLogs: newLogs
+        });
         
         if (success) {
             setLastUpdated(new Date());
             setConnectionError(false);
         } else {
-            throw new Error("Save returned false");
+            setConnectionError(true);
+            alert("Gagal menyimpan ke server. Data tersimpan sementara di aplikasi tetapi belum masuk ke Database Pusat.");
         }
     } catch (error) {
-        console.warn("Save failed (will retry next sync):", error);
+        console.error(error);
         setConnectionError(true);
     } finally {
         setIsSaving(false);
@@ -216,12 +131,13 @@ function App() {
   };
 
   const handleResetPassword = async (email: string) => {
-    // ... existing logic ...
     const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    
     if (targetUser) {
-        const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const updatedUser = { ...targetUser, password: resetToken };
+        const defaultPassword = "000000";
+        const updatedUser = { ...targetUser, password: defaultPassword };
         const updatedUserList = users.map(u => u.email === targetUser.email ? updatedUser : u);
+        
         const newLog: ValidationLog = {
             id: crypto.randomUUID(),
             timestamp: new Date().toISOString(),
@@ -230,20 +146,11 @@ function App() {
             description: `Reset password for user ${targetUser.email}`
         };
         const updatedLogs = [newLog, ...validationLogs];
+
         await saveToCloud(jobs, updatedUserList, updatedLogs);
-        
-        if (EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY) {
-            try {
-                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { to_name: targetUser.name, to_email: targetUser.email, reset_token: resetToken, password: resetToken, otp: resetToken, message: `Password baru: ${resetToken}` }, EMAILJS_PUBLIC_KEY);
-                return { success: true, isMock: false };
-            } catch (error: any) {
-                return { success: true, token: resetToken, isMock: true, errorMessage: error.text || "Email Error" };
-            }
-        } else {
-            return { success: true, token: resetToken, isMock: true };
-        }
+        return true;
     }
-    return { success: false };
+    return false;
   };
 
   const handleLogout = () => {
@@ -256,8 +163,10 @@ function App() {
     if (!currentUser) return false;
     const actualUser = users.find(u => u.email === currentUser.email) || currentUser;
     if (actualUser.password !== oldPass) return false;
+
     const updatedUser = { ...actualUser, password: newPass };
     const updatedUserList = users.map(u => u.email === actualUser.email ? updatedUser : u);
+    
     saveToCloud(jobs, updatedUserList, validationLogs);
     setCurrentUser(updatedUser);
     return true;
@@ -277,6 +186,7 @@ function App() {
   const handleUpdateJob = (id: string, updates: Partial<Job>) => {
     const oldJob = jobs.find(j => j.id === id);
     const newJobs = jobs.map(j => j.id === id ? { ...j, ...updates } : j);
+    
     let desc = `Update data pekerjaan`;
     if (oldJob) {
         if (updates.status && updates.status !== oldJob.status) {
@@ -287,6 +197,7 @@ function App() {
              desc = `Mengedit detail pekerjaan: ${oldJob.jobType} (${oldJob.branchDept})`;
         }
     }
+
     const newLog = createLog('UPDATE', desc, oldJob?.category);
     saveToCloud(newJobs, users, [newLog, ...validationLogs]);
   };
@@ -295,9 +206,21 @@ function App() {
     if (confirm("Apakah anda yakin ingin menghapus data ini?")) {
       const jobToDelete = jobs.find(j => j.id === id);
       const newJobs = jobs.filter(j => j.id !== id);
+      
       const newLog = createLog('DELETE', `Menghapus pekerjaan: ${jobToDelete?.jobType} (${jobToDelete?.branchDept})`, jobToDelete?.category);
       saveToCloud(newJobs, users, [newLog, ...validationLogs]);
     }
+  };
+
+  const handleDeleteCancelledJobs = (cat: string, sub: string) => {
+      const jobsToDelete = jobs.filter(j => j.category === cat && j.subCategory === sub && (j.status === 'Cancel' || j.status === 'Drop'));
+      if (jobsToDelete.length === 0) return;
+
+      if (confirm(`Apakah anda yakin ingin menghapus SEMUA data (${jobsToDelete.length} item) dengan status 'Cancel' atau 'Drop' di kategori ini?`)) {
+          const newJobs = jobs.filter(j => !(j.category === cat && j.subCategory === sub && (j.status === 'Cancel' || j.status === 'Drop')));
+          const newLog = createLog('DELETE', `Membersihkan ${jobsToDelete.length} data Cancel/Drop di ${cat} - ${sub}`, cat);
+          saveToCloud(newJobs, users, [newLog, ...validationLogs]);
+      }
   };
 
   const handleBulkAdd = (addedJobs: Job[]) => {
@@ -306,102 +229,20 @@ function App() {
     saveToCloud(newJobs, users, [newLog, ...validationLogs]);
   };
 
-  const handleStorageChange = (mode: string) => {
-      setStorageMode(mode);
-      localStorage.setItem(STORAGE_MODE_KEY, mode);
-      if (mode === 'GAS') {
-          localStorage.setItem('jne_custom_script_url', customScriptUrl);
-      }
-      setShowStorageModal(false);
-      
-      // IMPORTANT: Don't immediately force reload if we are switching to GAS and want to migrate data.
-      // We rely on the user clicking "Upload" inside the modal.
-      // But if they clicked "Save Configuration", we do a gentle load.
-      if (mode === 'LOCAL') {
-          loadData(true);
-      } else {
-          // If switching to GAS, only load if we don't have pending local data to save
-          if (jobs.length === 0) {
-              loadData(true);
-          } else {
-              // If we have data, we assume the user might want to keep it.
-              // We do nothing here, the state remains, user can click "Sync" later if they want.
-          }
-      }
-  };
-
-  // Fungsi untuk memuat data contoh (Demo Data) jika kosong
-  const handleLoadSampleData = () => {
-    const dummyJobs: Job[] = [
-        { id: crypto.randomUUID(), category: 'Penyesuaian', subCategory: 'Publish Rate', dateInput: new Date().toISOString().split('T')[0], branchDept: 'KANTOR PUSAT', jobType: 'Update Tarif Reguler 2024', status: 'In Progress', deadline: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Menunggu validasi IT' },
-        { id: crypto.randomUUID(), category: 'Report Surat', subCategory: 'Email Masuk', dateInput: new Date().toISOString().split('T')[0], branchDept: 'JNE MEDAN', jobType: 'Komplain Kiriman Corporate', status: 'Pending', deadline: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Email dari PT Maju Jaya', picUser: 'Budi', jenisPengajuan: 'Komplain', picRepd: 'Ani' },
-        { id: crypto.randomUUID(), category: 'Request Data', subCategory: 'Nasional', dateInput: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0], branchDept: 'SALES', jobType: 'Data Penjualan Q1', status: 'Completed', deadline: new Date().toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Sudah dikirim via email' },
-        { id: crypto.randomUUID(), category: 'Problem', subCategory: 'SLA', dateInput: new Date().toISOString().split('T')[0], branchDept: 'OPS', jobType: 'Keterlambatan Rute SUB-CGK', status: 'Overdue', deadline: new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0], createdBy: currentUser?.email, keterangan: 'Perlu investigasi mendalam' },
-    ];
-    setJobs(dummyJobs);
-    
-    // Update local immediately
-    localStorage.setItem(DATA_KEY, JSON.stringify({ jobs: dummyJobs, users, validationLogs }));
-    alert("Data Contoh berhasil dimuat! Silakan ke menu Settings -> Google Script -> Klik 'Upload' agar data ini tersimpan permanen.");
-  };
-
-  // Fungsi Restore Data dari Backup Browser
-  const handleRestoreData = () => {
-      const localData = localStorage.getItem(DATA_KEY);
-      if (localData) {
-          try {
-              const parsed = JSON.parse(localData);
-              if (parsed.jobs && parsed.jobs.length > 0) {
-                  setJobs(parsed.jobs);
-                  setUsers(parsed.users || AUTHORIZED_USERS);
-                  setValidationLogs(parsed.validationLogs || []);
-                  setLastUpdated(new Date());
-                  alert("Data berhasil dikembalikan dari backup browser!");
-              } else {
-                  alert("Tidak ada backup data yang ditemukan.");
-              }
-          } catch (e) {
-              alert("Backup data rusak.");
-          }
-      } else {
-          alert("Tidak ada backup tersimpan di browser ini.");
-      }
-  };
-
-  // Fungsi Migrasi: Upload data state saat ini (local/demo) ke GAS
-  const handleMigrateToGAS = async () => {
-    if (!customScriptUrl && !GOOGLE_SCRIPT_URL) {
-        alert("Masukkan URL Google Script terlebih dahulu!");
-        return;
-    }
-    
-    // Simpan URL sementara
-    localStorage.setItem('jne_custom_script_url', customScriptUrl);
-    
-    setIsMigrating(true);
-    try {
-        // Kita kirim data yang ada di MEMORY (jobs, users, logs) ke Script
-        const success = await driveApi.saveData({ jobs, users, validationLogs });
-        if (success) {
-            alert("SUKSES! Data berhasil diupload dan disimpan ke Google Sheet.");
-            setStorageMode('GAS');
-            localStorage.setItem(STORAGE_MODE_KEY, 'GAS');
-            setLastUpdated(new Date());
-            setConnectionError(false);
-            setShowStorageModal(false);
-        } else {
-            alert("Gagal upload. Pastikan URL benar, deployment 'Web App' sudah 'Anyone', dan script tidak error.");
-        }
-    } catch (e) {
-        alert("Error saat migrasi: " + e);
-    } finally {
-        setIsMigrating(false);
-    }
-  };
-
+  // Visibility Logic: 
+  // User can only see jobs they created, unless they are Admin.
   const visibleJobs = useMemo(() => {
-    return jobs;
-  }, [jobs]);
+    if (!currentUser) return [];
+    const userRole = users.find(u => u.email === currentUser.email)?.role || currentUser.role;
+
+    if (userRole === 'Admin') {
+        return jobs;
+    }
+
+    return jobs.filter(job => 
+        job.createdBy === currentUser.email
+    );
+  }, [jobs, currentUser, users]);
 
   if (!currentUser) {
     return (
@@ -415,29 +256,51 @@ function App() {
 
   const renderContent = () => {
       if (activeCategory === 'Validasi') {
-          if (activeSubCategory === 'Biaya Validasi') return <TarifValidator category="BIAYA" />;
+          if (activeSubCategory === 'Biaya Validasi') {
+             return <TarifValidator category="BIAYA" />;
+          }
           return <TarifValidator category="TARIF" />;
       }
+
       if (activeCategory === 'Kompetitor' && activeSubCategory) {
-          return <CompetitorAnalysis subCategory={activeSubCategory} />;
+          return (
+              <CompetitorManager 
+                  subCategory={activeSubCategory}
+                  currentUser={currentUser}
+              />
+          );
       }
-      if (!activeCategory || (activeCategory === 'Report Surat' && activeSubCategory === 'Summary')) {
-          const isReportSuratSummary = activeCategory === 'Report Surat';
-          const filteredJobs = isReportSuratSummary ? visibleJobs.filter(j => j.category === 'Report Surat') : visibleJobs;
+      
+      if (activeCategory === 'Report Surat' && activeSubCategory) {
+          return (
+              <ReportSuratManager 
+                 subCategory={activeSubCategory}
+                 jobs={visibleJobs}
+                 onAddJob={handleAddJob}
+                 onUpdateJob={handleUpdateJob}
+                 onDeleteJob={handleDeleteJob}
+                 onDeleteCancelled={() => handleDeleteCancelledJobs("Report Surat", activeSubCategory)}
+                 onBulkAddJobs={handleBulkAdd}
+                 currentUser={currentUser}
+              />
+          );
+      }
+      
+      if (!activeCategory) {
           return (
             <DashboardSummary 
-                jobs={filteredJobs} 
+                jobs={visibleJobs} 
                 onBulkAddJobs={handleBulkAdd}
                 onUpdateJob={handleUpdateJob}
+                onDeleteJob={handleDeleteJob}
                 isLoading={isLoading}
                 isSaving={isSaving}
-                connectionError={connectionError}
                 lastUpdated={lastUpdated}
-                currentUser={currentUser}
-                customTitle={isReportSuratSummary ? "Summary Report Surat" : undefined}
+                connectionError={connectionError}
             />
           );
       }
+
       if (activeSubCategory) {
           return (
             <JobManager 
@@ -447,47 +310,15 @@ function App() {
                 onAddJob={handleAddJob}
                 onUpdateJob={handleUpdateJob}
                 onDeleteJob={handleDeleteJob}
+                onDeleteCancelled={() => handleDeleteCancelledJobs(activeCategory, activeSubCategory)}
                 onBulkAddJobs={handleBulkAdd}
                 currentUser={currentUser}
             />
           );
       }
+
       return null;
   };
-
-  // Status Badge Logic
-  let statusBadge;
-  if (connectionError) {
-      if (storageMode === 'LOCAL') {
-          statusBadge = (
-              <span className="flex items-center text-gray-600 bg-gray-100 px-3 py-1 rounded-full border border-gray-200 text-xs font-medium">
-                <Database className="w-3 h-3 mr-1.5" />
-                Offline Mode (Local)
-              </span>
-          );
-      } else if (jobs.length > 0 || users.length > 0) {
-          statusBadge = (
-              <span className="flex items-center text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 text-xs font-medium animate-in fade-in" title="Koneksi cloud terganggu, namun data tersimpan aman di browser (Lokal).">
-                <WifiOff className="w-3 h-3 mr-1.5" />
-                Mode Offline (Data Lokal Aktif)
-              </span>
-          );
-      } else {
-          statusBadge = (
-              <span className="flex items-center text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 text-xs font-medium animate-pulse">
-                <Wifi className="w-3 h-3 mr-1.5" />
-                Gagal Terhubung
-              </span>
-          );
-      }
-  } else {
-       statusBadge = (
-          <span className="flex items-center text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100 text-xs font-medium">
-             <Cloud className="w-3 h-3 mr-1.5" />
-             {isSaving ? 'Menyimpan...' : 'Terhubung ke Cloud'}
-          </span>
-       );
-  }
 
   return (
     <Layout 
@@ -498,156 +329,17 @@ function App() {
       onLogout={handleLogout}
       onChangePassword={handleChangePassword}
     >
-        {/* Header Status Bar */}
-        <div className="flex justify-between items-center mb-6 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-           <div className="flex items-center gap-3">
-               {statusBadge}
-               {lastUpdated && (
-                   <span className={`text-xs ${connectionError ? 'text-amber-600/70' : 'text-gray-400'} hidden md:inline-block`}>
-                       Update Terakhir: {lastUpdated.toLocaleTimeString()}
-                   </span>
-               )}
-               {connectionError && (
-                   <button 
-                    onClick={() => loadData(true)}
-                    disabled={isLoading}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-transparent hover:border-blue-100 transition-colors"
-                   >
-                       <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-                       Reconnect
-                   </button>
-               )}
-           </div>
-           
-           <button 
-                onClick={() => setShowStorageModal(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
-           >
-               <Settings className="w-3 h-3 text-gray-400" />
-               {storageMode === 'GAS' ? 'Google Script' : storageMode === 'LOCAL' ? 'Local Only' : 'Demo Server'}
-           </button>
+      {connectionError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative animate-pulse">
+          <strong className="font-bold">Mode Offline: </strong>
+          <span className="block sm:inline">Gagal terhubung ke Database. Cek internet Anda.</span>
         </div>
+      )}
 
       {renderContent()}
-
-      {/* STORAGE CONFIG MODAL */}
-      {showStorageModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                  <div className="bg-[#002F6C] p-4 flex justify-between items-center text-white">
-                      <h3 className="font-bold flex items-center gap-2">
-                          <Database className="w-5 h-5" /> Konfigurasi & Data
-                      </h3>
-                      <button onClick={() => setShowStorageModal(false)} className="hover:text-gray-300">Close</button>
-                  </div>
-                  
-                  <div className="p-6 space-y-6">
-                      
-                      {/* Section Google Script */}
-                      <div className={`p-4 rounded-lg border transition-all ${storageMode === 'GAS' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
-                          <div className="flex items-center gap-3 mb-2 cursor-pointer" onClick={() => setStorageMode('GAS')}>
-                              <div className={`p-1 rounded-full ${storageMode === 'GAS' ? 'bg-green-600' : 'bg-gray-200'}`}>
-                                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                              </div>
-                              <h4 className="font-bold text-gray-800">Google Apps Script (Online)</h4>
-                          </div>
-                          
-                          {storageMode === 'GAS' && (
-                              <div className="ml-6 space-y-3 animate-in fade-in">
-                                  <div>
-                                      <label className="block text-xs font-bold text-gray-700 mb-1">URL Web App Google Script:</label>
-                                      <input 
-                                        type="text" 
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:border-green-500 focus:outline-none"
-                                        placeholder="https://script.google.com/macros/s/.../exec"
-                                        value={customScriptUrl || GOOGLE_SCRIPT_URL}
-                                        onChange={(e) => setCustomScriptUrl(e.target.value)}
-                                      />
-                                  </div>
-                                  
-                                  {/* MIGRATION BUTTON (Primary Action if there is data) */}
-                                  <div className="bg-white border border-green-200 p-3 rounded-lg shadow-sm">
-                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs font-bold text-green-800">
-                                            {jobs.length > 0 ? "⚠️ Anda memiliki data di layar!" : "Status Data"}
-                                        </p>
-                                     </div>
-                                     
-                                     <div className="flex flex-col gap-2">
-                                        {/* Jika ada data di layar, tawarkan upload */}
-                                        <button
-                                            onClick={handleMigrateToGAS}
-                                            disabled={isMigrating || jobs.length === 0}
-                                            className="w-full py-2.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400"
-                                        >
-                                            {isMigrating ? <RefreshCw className="w-3 h-3 animate-spin"/> : <UploadCloud className="w-4 h-4"/>}
-                                            Upload Data Layar ke Google Sheet
-                                        </button>
-                                        
-                                        <p className="text-[10px] text-gray-500 text-center">
-                                            Klik tombol di atas agar data yang sudah Anda input tidak hilang saat pindah ke Google Sheet.
-                                        </p>
-                                     </div>
-                                  </div>
-                              </div>
-                          )}
-                      </div>
-
-                      {/* Section Local Only */}
-                      <div className={`p-4 rounded-lg border transition-all ${storageMode === 'LOCAL' ? 'border-gray-500 bg-gray-50' : 'border-gray-200'}`}>
-                          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setStorageMode('LOCAL')}>
-                               <div className={`p-1 rounded-full ${storageMode === 'LOCAL' ? 'bg-gray-600' : 'bg-gray-200'}`}>
-                                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                              </div>
-                              <div>
-                                  <h4 className="font-bold text-gray-800">Local Only (Offline)</h4>
-                                  <p className="text-xs text-gray-500">Data hanya tersimpan di browser ini.</p>
-                              </div>
-                          </div>
-                      </div>
-
-                      {/* TOOLS SECTION: Recover Data & Sample Data */}
-                      <div className="border-t border-gray-200 pt-4">
-                          <p className="text-xs font-bold text-gray-400 uppercase mb-2">Tools Pemulihan Data</p>
-                          <div className="grid grid-cols-2 gap-3">
-                              <button
-                                onClick={handleLoadSampleData}
-                                className="py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded hover:bg-gray-200 transition flex items-center justify-center gap-2"
-                              >
-                                  <FileJson className="w-3 h-3" />
-                                  Muat Data Contoh
-                              </button>
-                              
-                              <button
-                                onClick={handleRestoreData}
-                                className="py-2 bg-blue-50 text-blue-700 text-xs font-bold rounded hover:bg-blue-100 transition flex items-center justify-center gap-2"
-                              >
-                                  <RotateCcw className="w-3 h-3" />
-                                  Kembalikan Data Terakhir
-                              </button>
-                          </div>
-                          <p className="text-[10px] text-gray-400 mt-2">
-                            *Gunakan "Kembalikan Data Terakhir" jika data Anda tiba-tiba hilang/kosong.
-                          </p>
-                      </div>
-
-                      <div className="pt-2 flex justify-end border-t border-gray-100">
-                           {/* Generic Save button mainly for changing modes without migrating */}
-                          <button 
-                            onClick={() => handleStorageChange(storageMode)}
-                            className="px-6 py-2 text-gray-600 hover:text-[#002F6C] font-bold text-sm transition"
-                          >
-                              Tutup / Simpan Mode
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
 
     </Layout>
   );
 }
 
 export default App;
-

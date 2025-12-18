@@ -1,4 +1,5 @@
 
+
 import { MenuStructure, User } from './types';
 
 export const MENU_STRUCTURE: MenuStructure = {
@@ -8,7 +9,7 @@ export const MENU_STRUCTURE: MenuStructure = {
   },
   "Penyesuaian": {
     name: "Penyesuaian",
-    submenus: ["Publish Rate", "Routing", "Costing"]
+    submenus: ["Harga Jual", "Routing", "Costing"]
   },
   "Request Data": {
     name: "Request Data",
@@ -37,29 +38,19 @@ export const JNE_BLUE = "#002F6C";
 
 export const LOGO_URL = "https://lh3.googleusercontent.com/d/19L5QBkcuSDrfWX_uqZGVUkpAlriZijp1";
 
-// Google Apps Script Configuration
-// PENTING: Ganti URL ini dengan URL Web App milik Anda sendiri agar data tersimpan di Google Drive Anda.
-// Baca file PANDUAN_ONLINE.md untuk caranya.
-export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3LeGHqD0GYlHHty5fDmVVaACazAu8WhTz_FyoiYadNgCr3E5e4Vbd7pCQEympdofD/exec"; 
+// Google Apps Script Configuration (Backup/Alternative)
+export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0EwNykAaEfujJ3OK7glHks5OtNpZfEV6XcsDKtv1G5qcLdQglmUFzd4yiaZsRkBkg/exec";
 
-// JSONBin.io Configuration (Alternative/Backup)
+// JSONBin.io Configuration (Primary)
 export const JSONBIN_BIN_ID = "692843aa43b1c97be9c875fd";
 export const JSONBIN_API_KEY = "$2a$10$LGur5G.UJ.Zqbg.83y6MrO/GqNujJc/zDfMiAx6keBe5gGyUhbSim";
 export const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
-// EmailJS Configuration (Wajib diisi LENGKAP agar email benar-benar terkirim)
-// Daftar gratis di https://www.emailjs.com/
-export const EMAILJS_SERVICE_ID = "service_3neptae"; 
-export const EMAILJS_TEMPLATE_ID = "template_10tz7wb"; 
-export const EMAILJS_PUBLIC_KEY = "a2Xkh3BhQaFKyO-jX";  
-
 // Default users configuration
 export const AUTHORIZED_USERS: User[] = [
   { email: "Ahmad.fauzan@jne.co.id", name: "Ahmad Fauzan", role: "Admin", password: "000000" },
-  { email: "agus.permana@jne.co.id", name: "Agus Permana", role: "Admin", password: "000000" },
-  { email: "muhamad.almusaeri@jne.co.id", name: "Muh Almusaeri", role: "Admin", password: "000000" },
-  { email: "rita.sumardi@jne.co.id", name: "Rita Sumardi", role: "Admin", password: "000000" },
-  { email: "adm.ppdd@jne.co.id", name: "Admin PPDD", role: "Admin", password: "000000" },
+  { email: "agus.permana@jne.co.id", name: "Agus Permana", role: "User", password: "000000" },
+  { email: "rita.sumardi@jne.co.id", name: "Rita Sumardi", role: "User", password: "000000" },
+  { email: "adm.ppdd@jne.co.id", name: "Admin PPDD", role: "User", password: "000000" },
   { email: "davis.gunawan@jne.co.id", name: "Davis Gunawan", role: "Admin", password: "000000" }
 ];
-

@@ -1,6 +1,5 @@
 
-
-export type Status = 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Hold' | 'Cancel';
+export type Status = 'Pending' | 'In Progress' | 'Completed' | 'Overdue' | 'Drop' | 'On Proses' | 'DONE' | 'Hold' | 'Cancel';
 
 export interface Job {
   id: string;
@@ -8,46 +7,74 @@ export interface Job {
   subCategory: string;
   dateInput: string;
   branchDept: string;
-  jobType: string; // Acts as "Nama Pekerjaan", "Subject Email", or "Deskripsi" depending on context
+  jobType: string; // Used as "Deskripsi" or "Subject Email" in new reports
   status: Status;
-  deadline: string;
+  deadline: string; // Used as "Tanggal Update" for Email Masuk
   activationDate?: string;
   keterangan?: string;
   notes?: string;
   createdBy?: string;
   
-  // Checklist Fields for Penyesuaian
-  isCabangConfirmed?: boolean;
-  isDisposition?: boolean;
-  isApproved?: boolean;
+  // New flexible field for Report Surat specific data
+  customData?: {
+    // Common / Email Masuk
+    picUser?: string;
+    jenisPengajuan?: string;
+    picRepd?: string;
+    
+    // Disposisi & Internal Memo Common
+    nomorSurat?: string; // No Disposisi / No Internal Memo
+    klasifikasi?: string;
+    
+    // Checkboxes (Stored as simple booleans)
+    approvals?: {
+        headDept?: boolean;
+        headDiv?: boolean;
+        regional?: boolean;
+        vp?: boolean;
+        bod?: boolean;
+    };
+    
+    documents?: {
+        softCopy?: boolean;
+        hardCopy?: boolean;
+        lampiran?: boolean; // Disposisi only
+        link?: string; // Internal Memo (This is text, not bool)
+    };
+    
+    socialization?: {
+        cabang?: boolean;
+        it?: boolean;
+    };
+  };
+}
 
-  // Fields for Email Masuk
-  picUser?: string;
-  jenisPengajuan?: string;
-  tanggalUpdate?: string; // Tgl Update Progress
-  picRepd?: string;
+export interface CompetitorRow {
+    id: string;
+    regional: string;
+    origin: string;
+    destination: string;
+    weight: number;
+    
+    // Regular
+    jneRegPrice: number;
+    jneRegSla: string;
+    jntEzPrice: number;
+    jntEzSla: string;
+    lionRegPrice: number;
+    lionRegSla: string;
+    sicepatRegPrice: number;
+    sicepatRegSla: string;
 
-  // Fields for Disposisi
-  noDisposisi?: string;
-  klasifikasi?: string;
-  // Disposisi Approvals
-  approveHeadDept?: boolean;
-  approveHeadDiv?: boolean;
-  approveRegional?: boolean;
-  approveVP?: boolean;
-  approveBOD?: boolean;
-  // Disposisi/Memo Documents
-  docSoftCopy?: boolean;
-  docLampiran?: boolean;
-  docHardCopy?: boolean;
-
-  // Fields for Internal Memo
-  noInternalMemo?: string;
-  linkAktifasi?: string; // Text input for link
-  hasLinkAktifasi?: boolean; // Checkbox for Link Aktifasi
-  // Internal Memo Socialization
-  sosialisasiCabang?: boolean;
-  sosialisasiIT?: boolean;
+    // Cargo/Trucking
+    jneJtrPrice: number;
+    jneJtrSla: string;
+    jntCargoPrice: number;
+    jntCargoSla: string;
+    lionBigPrice: number;
+    lionBigSla: string;
+    wahanaCargoPrice: number;
+    wahanaCargoSla: string;
 }
 
 export interface MenuItem {
@@ -140,37 +167,4 @@ export interface ValidationHistoryItem {
     fileNameMaster: string;
     result: ValidationResult;
     category: ValidationCategory;
-}
-
-// Competitor Analysis Types
-export interface CompetitorRow {
-    id: string;
-    // Origin Info
-    kodingOrigin: string;
-    origin: string;
-    destinasi: string;
-    provinsi: string;
-    kabKota: string;
-    kecamatan: string;
-    regional: string;
-
-    // REGULAR
-    jneRegPrice: number;
-    jneRegSla: string;
-    jntRegPrice: number;
-    jntRegSla: string;
-    lionRegPrice: number;
-    lionRegSla: string;
-    sicepatRegPrice: number;
-    sicepatRegSla: string;
-
-    // TRUCKING/CARGO
-    jneTruckPrice: number;
-    jneTruckSla: string;
-    jntTruckPrice: number;
-    jntTruckSla: string;
-    lionTruckPrice: number;
-    lionTruckSla: string;
-    wahanaTruckPrice: number;
-    wahanaTruckSla: string;
 }
