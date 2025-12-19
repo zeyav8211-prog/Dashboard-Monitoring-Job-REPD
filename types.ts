@@ -7,26 +7,26 @@ export interface Job {
   subCategory: string;
   dateInput: string;
   branchDept: string;
-  jobType: string; // Used as "Deskripsi" or "Subject Email" in new reports
+  jobType: string;
   status: Status;
-  deadline: string; // Used as "Tanggal Update" for Email Masuk
+  deadline: string;
   activationDate?: string;
   keterangan?: string;
   notes?: string;
   createdBy?: string;
   
-  // New flexible field for Report Surat specific data
+  // Field untuk validasi sesuai gambar di menu Penyesuaian
+  konfirmasiCabang?: boolean;
+  disposisi?: boolean;
+  approve?: boolean;
+
   customData?: {
-    // Common / Email Masuk
     picUser?: string;
     jenisPengajuan?: string;
     picRepd?: string;
-    
-    // Disposisi & Internal Memo Common
-    nomorSurat?: string; // No Disposisi / No Internal Memo
+    nomorSurat?: string;
     klasifikasi?: string;
-    
-    // Checkboxes (Stored as simple booleans)
+    tanggalUpdate?: string;
     approvals?: {
         headDept?: boolean;
         headDiv?: boolean;
@@ -34,17 +34,23 @@ export interface Job {
         vp?: boolean;
         bod?: boolean;
     };
-    
     documents?: {
         softCopy?: boolean;
         hardCopy?: boolean;
-        lampiran?: boolean; // Disposisi only
-        link?: string; // Internal Memo (This is text, not bool)
+        lampiran?: boolean;
+        linkAktifasi?: boolean;
+        linkUrl?: string;
     };
-    
     socialization?: {
         cabang?: boolean;
         it?: boolean;
+    };
+    // Field baru untuk Produksi Master Data
+    masterDataSources?: {
+        server?: boolean;
+        it?: boolean;
+        others?: boolean;
+        othersText?: string;
     };
   };
 }
@@ -55,8 +61,6 @@ export interface CompetitorRow {
     origin: string;
     destination: string;
     weight: number;
-    
-    // Regular
     jneRegPrice: number;
     jneRegSla: string;
     jntEzPrice: number;
@@ -65,8 +69,6 @@ export interface CompetitorRow {
     lionRegSla: string;
     sicepatRegPrice: number;
     sicepatRegSla: string;
-
-    // Cargo/Trucking
     jneJtrPrice: number;
     jneJtrSla: string;
     jntCargoPrice: number;
@@ -125,8 +127,6 @@ export interface FullValidationRow {
     origin: string;
     dest: string;
     sysCode: string;
-    
-    // Tarif Fields
     serviceMaster: string;
     tarifMaster: number;
     slaFormMaster: number;
@@ -135,20 +135,16 @@ export interface FullValidationRow {
     tarifIT: number;
     slaFormIT: number;
     slaThruIT: number;
-
-    // Biaya Fields
     bpMaster?: number;
     bpNextMaster?: number;
     btMaster?: number;
     bdMaster?: number;
     bdNextMaster?: number;
-    
     bpIT?: number;
     bpNextIT?: number;
     btIT?: number;
     bdIT?: number;
     bdNextIT?: number;
-
     keterangan: string;
 }
 

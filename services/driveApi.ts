@@ -1,9 +1,11 @@
-import { Job, User } from '../types';
+
+import { Job, User, ValidationLog } from '../types';
 import { GOOGLE_SCRIPT_URL } from '../constants';
 
 interface AppData {
   jobs: Job[];
   users: User[];
+  validationLogs: ValidationLog[];
 }
 
 export const driveApi = {
@@ -32,7 +34,12 @@ export const driveApi = {
         return null;
       }
 
-      return data;
+      // Ensure all fields exist
+      return {
+        jobs: data.jobs || [],
+        users: data.users || [],
+        validationLogs: data.validationLogs || []
+      };
     } catch (error) {
       console.error('Error fetching data from Drive:', error);
       throw error;
@@ -48,7 +55,7 @@ export const driveApi = {
         method: 'POST',
         credentials: 'omit',
         redirect: 'follow',
-        // Text/plain prevents preflight OPTIONS request
+        // Text/plain prevents preflight OPTIONS request in some environments
         headers: {
           'Content-Type': 'text/plain;charset=utf-8', 
         },
