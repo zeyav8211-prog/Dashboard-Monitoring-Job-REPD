@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Job, Status, User } from '../types';
-import { Plus, Pencil, Search, CheckSquare, Square, X, Database, Calendar, Clock, FileType, Upload, Download } from 'lucide-react';
+import { Plus, Pencil, Search, CheckSquare, Square, X, Database, Calendar, Clock, FileType, Upload, Download, MapPin, User as UserIcon, FileText, Info } from 'lucide-react';
 
 interface ProduksiMasterManagerProps {
   category: string;
@@ -19,6 +20,7 @@ export const ProduksiMasterManager: React.FC<ProduksiMasterManagerProps> = ({
   const [view, setView] = useState<'list' | 'form'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedJobDetail, setSelectedJobDetail] = useState<Job | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<Partial<Job>>({
@@ -72,7 +74,8 @@ export const ProduksiMasterManager: React.FC<ProduksiMasterManagerProps> = ({
     handleCancel();
   };
 
-  const handleEdit = (job: Job) => {
+  const handleEdit = (e: React.MouseEvent, job: Job) => {
+    e.stopPropagation();
     setEditingId(job.id);
     setFormData(job);
     setView('form');
@@ -93,6 +96,19 @@ export const ProduksiMasterManager: React.FC<ProduksiMasterManagerProps> = ({
             masterDataSources: { server: false, it: false, others: false, othersText: '' }
         }
     });
+  };
+
+  const getStatusStyle = (status: Status) => {
+    switch (status) {
+      case 'Completed':
+      case 'DONE': return 'bg-green-100 text-green-700 border-green-200';
+      case 'In Progress': 
+      case 'On Proses': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Hold': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+      case 'Cancel':
+      case 'Drop': return 'bg-red-50 text-red-700 border-red-200';
+      default: return 'bg-amber-100 text-amber-700 border-amber-200';
+    }
   };
 
   const toggleSource = (key: 'server' | 'it' | 'others') => {
@@ -328,7 +344,11 @@ export const ProduksiMasterManager: React.FC<ProduksiMasterManagerProps> = ({
                     <tr><td colSpan={7} className="p-20 text-center text-gray-400 italic">Belum ada data master yang diproduksi.</td></tr>
                   ) : (
                     filteredJobs.map(job => (
-                      <tr key={job.id} className="hover:bg-gray-50/50 transition-all group">
+                      <tr 
+                        key={job.id} 
+                        onClick={() => setSelectedJobDetail(job)}
+                        className="hover:bg-gray-50/50 transition-all group cursor-pointer"
+                      >
                         <td className="p-6">
                           <div className="font-black text-gray-800 text-[13px]">{job.jobType}</div>
                           <div className="text-[10px] text-gray-400 font-bold uppercase mt-1 italic">{job.keterangan || '-'}</div>
@@ -344,10 +364,10 @@ export const ProduksiMasterManager: React.FC<ProduksiMasterManagerProps> = ({
                         <td className="p-6 font-black text-[#EE2E24]">{job.activationDate ? new Date(job.activationDate).toLocaleDateString('id-ID') : '-'}</td>
                         <td className="p-6 font-black text-gray-600">{job.deadline ? new Date(job.deadline).toLocaleDateString('id-ID') : '-'}</td>
                         <td className="p-6">
-                            <span className="px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border bg-blue-50 text-blue-700 border-blue-100">{job.status}</span>
+                            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getStatusStyle(job.status)}`}>{job.status}</span>
                         </td>
                         <td className="p-6 text-center">
-                            <button onClick={() => handleEdit(job)} className="p-3 text-gray-300 hover:text-[#002F6C] hover:bg-white rounded-2xl transition-all"><Pencil size={18} /></button>
+                            <button onClick={(e) => handleEdit(e, job)} className="p-3 text-gray-300 hover:text-[#002F6C] hover:bg-white rounded-2xl transition-all"><Pencil size={18} /></button>
                         </td>
                       </tr>
                     ))
@@ -358,6 +378,49 @@ export const ProduksiMasterManager: React.FC<ProduksiMasterManagerProps> = ({
           </div>
         )}
       </div>
+
+      {/* JOB DETAIL MODAL */}
+      {selectedJobDetail && (
+        <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in zoom-in-95 duration-300">
+           <div className="bg-white w-full max-w-2xl rounded-[4rem] shadow-2xl overflow-hidden border-4 border-white/20">
+              <div className="p-10 bg-[#002F6C] text-white flex justify-between items-start">
+                  <div>
+                    <span className="px-4 py-1.5 bg-[#EE2E24] rounded-full text-[10px] font-black uppercase tracking-widest">Detail Pekerjaan</span>
+                    <h4 className="text-3xl font-black uppercase italic mt-4 leading-tight">{selectedJobDetail.jobType}</h4>
+                    <p className="text-white/60 font-bold uppercase text-[10px] mt-2 tracking-widest">{selectedJobDetail.category} / {selectedJobDetail.subCategory}</p>
+                  </div>
+                  <button onClick={() => setSelectedJobDetail(null)} className="p-4 bg-white/10 hover:bg-[#EE2E24] text-white rounded-2xl transition-all shadow-xl"><X size={24}/></button>
+              </div>
+              <div className="p-12 space-y-8">
+                  <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><MapPin size={14}/> Cabang / Dept</p>
+                        <p className="font-black text-gray-800 text-lg uppercase italic">{selectedJobDetail.branchDept}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><UserIcon size={14}/> Dibuat Oleh</p>
+                        <p className="font-bold text-gray-600 truncate">{selectedJobDetail.createdBy || 'System'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Calendar size={14}/> Deadline</p>
+                        <p className="font-black text-red-600 text-lg">{new Date(selectedJobDetail.deadline).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><FileText size={14}/> Status</p>
+                        <span className={`inline-block px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getStatusStyle(selectedJobDetail.status)}`}>{selectedJobDetail.status}</span>
+                      </div>
+                  </div>
+                  <div className="p-8 bg-gray-50 rounded-[2.5rem] border border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Info size={14}/> Deskripsi & Catatan</p>
+                    <p className="text-gray-600 font-medium leading-relaxed">{selectedJobDetail.keterangan || 'Tidak ada keterangan tambahan.'}</p>
+                  </div>
+                  <div className="flex justify-end pt-4">
+                    <button onClick={() => setSelectedJobDetail(null)} className="px-12 py-4 bg-[#002F6C] text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-900 transition-all">Tutup Detail</button>
+                  </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

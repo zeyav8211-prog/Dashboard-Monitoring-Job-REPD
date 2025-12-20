@@ -8,19 +8,13 @@ import { TarifValidator } from './components/TarifValidator';
 import { ReportSuratManager } from './components/ReportSuratManager';
 import { ProduksiMasterManager } from './components/ProduksiMasterManager';
 import { CompetitorManager } from './components/CompetitorManager';
-import { Job, User, ValidationLog, Status } from './types';
+import { Job, User, ValidationLog } from './types';
 import { AUTHORIZED_USERS } from './constants';
 import { driveApi } from './services/driveApi';
 import { api as jsonBinApi } from './services/api';
-import { WifiOff } from 'lucide-react';
+import { WifiOff, Loader2 } from 'lucide-react';
 
 type StorageProvider = 'GAS' | 'JSONBIN' | 'BOTH';
-
-interface MergedData {
-  jobs: Job[];
-  validationLogs: ValidationLog[];
-  users: User[];
-}
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -33,7 +27,6 @@ function App() {
   });
 
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [users, setUsers] = useState<User[]>(AUTHORIZED_USERS);
   const [validationLogs, setValidationLogs] = useState<ValidationLog[]>([]);
   
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -42,155 +35,94 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const mergeDatasets = (gasData: any, binData: any): MergedData => {
-    const jobMap = new Map<string, Job>();
-    const gasJobs: Job[] = Array.isArray(gasData?.jobs) ? gasData.jobs : [];
-    const binJobs: Job[] = Array.isArray(binData?.jobs) ? binData.jobs : [];
-    [...gasJobs, ...binJobs].forEach((j: Job) => { if (j && j.id) jobMap.set(j.id, j); });
-
-    const logMap = new Map<string, ValidationLog>();
-    const gasLogs: ValidationLog[] = Array.isArray(gasData?.validationLogs) ? gasData.validationLogs : [];
-    const binLogs: ValidationLog[] = Array.isArray(binData?.validationLogs) ? binData.validationLogs : [];
-    [...gasLogs, ...binLogs].forEach((l: ValidationLog) => { if (l && l.id) logMap.set(l.id, l); });
-
-    const userMap = new Map<string, User>();
-    const gasUsers: User[] = Array.isArray(gasData?.users) ? gasData.users : [];
-    const binUsers: User[] = Array.isArray(binData?.users) ? binData.users : [];
-    [...gasUsers, ...binUsers].forEach((u: User) => { if (u && u.email) userMap.set(u.email.toLowerCase(), u); });
-
-    return {
-      jobs: Array.from(jobMap.values()),
-      validationLogs: Array.from(logMap.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-      users: Array.from(userMap.values())
-    };
-  };
 
   const fetchData = useCallback(async () => {
-    if (isSaving) return;
     try {
-      let finalData: MergedData | null = null;
-      if (storageProvider === 'BOTH') {
-        const [gasRes, binRes] = await Promise.allSettled([driveApi.getData(), jsonBinApi.getData()]);
-        const gasData = gasRes.status === 'fulfilled' ? gasRes.value : null;
-        const binData = binRes.status === 'fulfilled' ? binRes.value : null;
-        if (!gasData && !binData) throw new Error("Connection failed");
-        finalData = mergeDatasets(gasData, binData);
-      } else {
-        const api = storageProvider === 'GAS' ? driveApi : jsonBinApi;
-        const data = await api.getData();
-        if (data) {
-          finalData = {
-            jobs: Array.isArray(data.jobs) ? data.jobs : [],
-            validationLogs: Array.isArray(data.validationLogs) ? data.validationLogs : [],
-            users: Array.isArray(data.users) ? data.users : []
-          };
-        }
-      }
-
-      if (finalData) {
-        setJobs(finalData.jobs);
-        setValidationLogs(finalData.validationLogs);
-        const mergedUsers = AUTHORIZED_USERS.map((defaultUser: User) => {
-            const cloudUser = finalData!.users.find((u: User) => u.email.toLowerCase() === defaultUser.email.toLowerCase());
-            return { ...defaultUser, password: cloudUser ? cloudUser.password : defaultUser.password };
-        });
-        setUsers(mergedUsers);
-        setLastUpdated(new Date());
+      const api = storageProvider === 'GAS' ? driveApi : jsonBinApi;
+      const data = await api.getData();
+      if (data) {
+        setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+        setValidationLogs(Array.isArray(data.validationLogs) ? data.validationLogs : []);
         setConnectionError(false);
       }
     } catch (error) {
       console.error("Fetch error:", error);
+      // Fallback to local storage if available for basic jobs
       setConnectionError(true);
     } finally {
       setIsLoading(false);
     }
-  }, [isSaving, storageProvider]);
+  }, [storageProvider]);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 45000);
+    const interval = setInterval(fetchData, 180000); // 3 menit sync
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const saveToCloud = async (newJobs: Job[], newUsers: User[], newLogs: ValidationLog[]) => {
+  const saveToCloud = async (newJobs: Job[], newLogs: ValidationLog[]) => {
     setIsSaving(true);
-    const payload = { jobs: newJobs, users: newUsers, validationLogs: newLogs };
+    const payload = { jobs: newJobs, users: AUTHORIZED_USERS, validationLogs: newLogs };
     try {
-        let success = false;
-        if (storageProvider === 'BOTH') {
-            const [gasRes, binRes] = await Promise.allSettled([driveApi.saveData(payload), jsonBinApi.saveData(payload)]);
-            success = (gasRes.status === 'fulfilled' && gasRes.value) || (binRes.status === 'fulfilled' && binRes.value);
-        } else {
-            const api = storageProvider === 'GAS' ? driveApi : jsonBinApi;
-            success = await api.saveData(payload);
-        }
-        if (success) {
-            setLastUpdated(new Date());
-            setConnectionError(false);
-        } else {
-            setConnectionError(true);
-        }
+        const api = storageProvider === 'GAS' ? driveApi : jsonBinApi;
+        await api.saveData(payload);
     } catch (error) {
-        setConnectionError(true);
+        console.error("Save error:", error);
     } finally {
         setIsSaving(false);
     }
   };
 
-  const handleProviderChange = (newProvider: StorageProvider) => {
-    setStorageProvider(newProvider);
-    localStorage.setItem('jne_storage_provider', newProvider);
-    setIsLoading(true);
-    fetchData();
-  };
-
-  const createLog = (action: ValidationLog['action'], description: string, category?: string): ValidationLog => ({
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      user: currentUser?.name || 'Unknown',
-      action,
-      description,
-      category
-  });
-
   const handleAddJob = (job: Job) => {
     const newJobs = [job, ...jobs];
-    const newLog = createLog('CREATE', `Tambah: ${job.jobType}`, job.category);
-    saveToCloud(newJobs, users, [newLog, ...validationLogs]);
+    const newLogs = [{ 
+        id: crypto.randomUUID(), 
+        timestamp: new Date().toISOString(), 
+        user: currentUser?.name || 'User', 
+        action: 'CREATE' as const, 
+        description: `Tambah: ${job.jobType}`, 
+        category: job.category 
+    }, ...validationLogs];
+    setJobs(newJobs);
+    setValidationLogs(newLogs);
+    saveToCloud(newJobs, newLogs);
   };
 
   const handleUpdateJob = (id: string, updates: Partial<Job>) => {
-    const oldJob = jobs.find(j => j.id === id);
     const newJobs = jobs.map(j => j.id === id ? { ...j, ...updates } : j);
-    const newLog = createLog('UPDATE', `Update: ${oldJob?.jobType}`, oldJob?.category);
-    saveToCloud(newJobs, users, [newLog, ...validationLogs]);
+    setJobs(newJobs);
+    saveToCloud(newJobs, validationLogs);
   };
 
   const handleDeleteJob = (id: string) => {
-    if (confirm("Hapus data ini?")) {
-      const jobToDelete = jobs.find(j => j.id === id);
+    if (confirm("Hapus data ini secara permanen?")) {
       const newJobs = jobs.filter(j => j.id !== id);
-      const newLog = createLog('DELETE', `Hapus: ${jobToDelete?.jobType}`, jobToDelete?.category);
-      saveToCloud(newJobs, users, [newLog, ...validationLogs]);
+      setJobs(newJobs);
+      saveToCloud(newJobs, validationLogs);
     }
   };
 
-  const handleBulkAdd = (addedJobs: Job[]) => {
-    const newJobs = [...addedJobs, ...jobs];
-    const newLog = createLog('BULK_IMPORT', `Import ${addedJobs.length} data`, addedJobs[0]?.category);
-    saveToCloud(newJobs, users, [newLog, ...validationLogs]);
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem('jne_current_user', JSON.stringify(user));
   };
 
   const visibleJobs = useMemo(() => {
     if (!currentUser) return [];
-    const actualUser = users.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
-    if (actualUser?.role === 'Admin') return jobs;
-    return jobs.filter(job => !job.createdBy || job.createdBy.toLowerCase() === currentUser.email.toLowerCase());
-  }, [jobs, currentUser, users]);
+    if (currentUser.role === 'Admin') return jobs;
+    return jobs.filter(j => j.createdBy === currentUser.email);
+  }, [jobs, currentUser]);
 
-  if (!currentUser) return <Login onLogin={setCurrentUser} users={users} onResetPassword={async () => false} />;
+  if (!currentUser) return <Login onLogin={handleLogin} users={AUTHORIZED_USERS} onResetPassword={async () => false} />;
+
+  if (isLoading && jobs.length === 0) {
+    return (
+        <div className="h-screen flex flex-col items-center justify-center bg-white/50 backdrop-blur-md">
+            <Loader2 className="w-16 h-16 text-[#002F6C] animate-spin mb-6" />
+            <p className="text-gray-400 font-black uppercase tracking-[0.4em] text-[10px]">Inisialisasi Sistem JNE Dashboard...</p>
+        </div>
+    );
+  }
 
   return (
     <Layout 
@@ -198,55 +130,33 @@ function App() {
       activeSubCategory={activeSubCategory} 
       onNavigate={(cat, sub) => { setActiveCategory(cat); setActiveSubCategory(sub); }}
       user={currentUser}
-      onLogout={() => {
-        setCurrentUser(null);
-        localStorage.removeItem('jne_current_user');
-      }}
+      onLogout={() => { setCurrentUser(null); localStorage.removeItem('jne_current_user'); }}
       onChangePassword={() => false}
     >
       {connectionError && (
-        <div className="mb-6 bg-red-100 border-2 border-red-200 text-red-700 px-6 py-4 rounded-[2rem] flex items-center gap-3 animate-pulse">
-          <WifiOff size={20} /> <span className="font-bold uppercase text-xs italic tracking-tighter">Koneksi Cloud Terganggu - Mode Offline Aktif</span>
+        <div className="mb-8 bg-red-100/80 backdrop-blur-md border-2 border-red-200 text-red-700 px-8 py-4 rounded-[2rem] flex items-center gap-4 animate-pulse shadow-xl shadow-red-50">
+          <WifiOff size={24} /> 
+          <div>
+            <p className="font-black uppercase text-xs tracking-widest leading-none">Offline Mode</p>
+            <p className="text-[10px] font-bold opacity-70 mt-1 uppercase">Gagal terhubung ke Cloud Storage - Data mungkin tidak sinkron.</p>
+          </div>
         </div>
       )}
       
       {activeCategory === 'Validasi' ? <TarifValidator category={activeSubCategory === 'Biaya Validasi' ? 'BIAYA' : 'TARIF'} /> :
        activeCategory === 'Kompetitor' ? <CompetitorManager subCategory={activeSubCategory || ''} currentUser={currentUser} /> :
-       activeCategory === 'Report Surat' ? (
-         <ReportSuratManager 
-           subCategory={activeSubCategory || 'Summary'} 
-           jobs={visibleJobs} 
-           onAddJob={handleAddJob} 
-           onUpdateJob={handleUpdateJob} 
-           onDeleteJob={handleDeleteJob} 
-           onDeleteCancelled={() => {}} 
-           onBulkAddJobs={handleBulkAdd}
-           currentUser={currentUser} 
-         />
-       ) :
-       activeCategory === 'Produksi Master Data' ? (
-         <ProduksiMasterManager
-           category={activeCategory}
-           subCategory={activeSubCategory || ''}
-           jobs={visibleJobs}
-           onAddJob={handleAddJob}
-           onUpdateJob={handleUpdateJob}
-           onDeleteJob={handleDeleteJob}
-           /* Fix: Add missing onBulkAddJobs prop */
-           onBulkAddJobs={handleBulkAdd}
-           currentUser={currentUser}
-         />
-       ) :
-       activeCategory ? <JobManager category={activeCategory} subCategory={activeSubCategory || ''} jobs={visibleJobs} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onDeleteCancelled={() => {}} onBulkAddJobs={handleBulkAdd} currentUser={currentUser} /> :
+       activeCategory === 'Report Surat' ? <ReportSuratManager subCategory={activeSubCategory || 'Summary'} jobs={visibleJobs} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onDeleteCancelled={()=>{}} onBulkAddJobs={(js) => { const n = [...js, ...jobs]; setJobs(n); saveToCloud(n, validationLogs); }} currentUser={currentUser} /> :
+       activeCategory === 'Produksi Master Data' ? <ProduksiMasterManager category={activeCategory} subCategory={activeSubCategory || ''} jobs={visibleJobs} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} currentUser={currentUser} onBulkAddJobs={(js) => { const n = [...js, ...jobs]; setJobs(n); saveToCloud(n, validationLogs); }} /> :
+       activeCategory ? <JobManager category={activeCategory} subCategory={activeSubCategory || ''} jobs={visibleJobs} onAddJob={handleAddJob} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} onDeleteCancelled={()=>{}} onBulkAddJobs={(js) => { const n = [...js, ...jobs]; setJobs(n); saveToCloud(n, validationLogs); }} currentUser={currentUser} /> :
        <DashboardSummary 
           jobs={visibleJobs} 
           allJobs={jobs} 
           onDeleteJob={handleDeleteJob} 
-          onBulkAddJobs={handleBulkAdd}
+          onBulkAddJobs={(js) => { const n = [...js, ...jobs]; setJobs(n); saveToCloud(n, validationLogs); }}
           isLoading={isLoading} 
           isSaving={isSaving} 
           storageProvider={storageProvider}
-          onProviderChange={handleProviderChange}
+          onProviderChange={setStorageProvider}
           onForceSync={fetchData}
         />
       }

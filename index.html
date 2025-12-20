@@ -1,16 +1,30 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JNE Job Dashboard</title>
+    <title>JNE Dashboard - IT PPDD Control Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --jne-blue: #002F6C;
+        --jne-red: #EE2E24;
+      }
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #f3f4f6;
+        background-color: #ffffff;
+        /* Vibrant Mesh Gradient Combination */
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(0, 47, 108, 0.25) 0%, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(238, 46, 36, 0.2) 0%, transparent 50%),
+          radial-gradient(at 50% 50%, rgba(255, 255, 255, 1) 0%, transparent 100%),
+          radial-gradient(at 100% 100%, rgba(0, 47, 108, 0.15) 0%, transparent 50%),
+          radial-gradient(at 0% 100%, rgba(238, 46, 36, 0.18) 0%, transparent 50%);
+        background-attachment: fixed;
+        min-height: 100vh;
+        margin: 0;
       }
       .scrollbar-hide::-webkit-scrollbar {
           display: none;
@@ -20,8 +34,8 @@
           scrollbar-width: none;
       }
       @keyframes blink-red {
-        0%, 100% { background-color: rgba(239, 68, 68, 1); color: white; }
-        50% { background-color: rgba(254, 226, 226, 1); color: #b91c1c; }
+        0%, 100% { background-color: rgba(238, 46, 36, 1); color: white; }
+        50% { background-color: rgba(238, 46, 36, 0.1); color: var(--jne-red); }
       }
       @keyframes blink-orange {
         0%, 100% { background-color: rgba(245, 158, 11, 1); color: white; }
@@ -33,21 +47,27 @@
       .animate-blink-orange {
         animation: blink-orange 1.5s infinite;
       }
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "lucide-react": "https://unpkg.com/lucide-react@0.474.0/dist/esm/lucide-react.js",
+        "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+        "vite": "https://aistudiocdn.com/vite@^7.2.6",
+        "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+      }
+    }
+    </script>
+  <link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Job, Status, User } from '../types';
-import { Plus, X, Search, Pencil, CheckSquare, Square, Eye, Calendar, MapPin, User as UserIcon, Info, FileText, Download, Upload, FileType, Trash2 } from 'lucide-react';
+import { Plus, X, Search, Pencil, CheckSquare, Square, Eye, Calendar, MapPin, User as UserIcon, Info, FileText, Download, Upload, FileType, Trash2, ClipboardCheck } from 'lucide-react';
 
 interface JobManagerProps {
   category: string;
@@ -113,7 +114,6 @@ export const JobManager: React.FC<JobManagerProps> = ({
     const dl = new Date(deadline); dl.setHours(0,0,0,0);
     const diffTime = dl.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
     if (diffDays <= 0) return 'animate-blink-red px-2 py-1 rounded-lg text-white font-black';
     if (diffDays === 1) return 'animate-blink-orange px-2 py-1 rounded-lg text-white font-black';
     return '';
@@ -127,26 +127,11 @@ export const JobManager: React.FC<JobManagerProps> = ({
         j.dateInput, j.branchDept, `"${j.jobType}"`, j.status, j.deadline, `"${j.keterangan || ''}"`, j.createdBy || 'System'
       ].join(","))
     ].join("\n");
-    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `Export_${category}_${subCategory}_${new Date().getTime()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const downloadTemplate = () => {
-    const headers = ["DateInput", "BranchDept", "JobType", "Status", "Deadline", "Keterangan"];
-    const example = `${new Date().toISOString().split('T')[0]},JAKARTA,Pekerjaan Contoh,Pending,${new Date().toISOString().split('T')[0]},Catatan Tambahan`;
-    const csvContent = headers.join(",") + "\n" + example;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Template_Input_${subCategory.replace(/\s+/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -160,18 +145,13 @@ export const JobManager: React.FC<JobManagerProps> = ({
       const text = event.target?.result as string;
       const lines = text.split(/\r\n|\n/);
       const newJobs: Job[] = [];
-      
       if (lines.length < 2) return;
-
-      // Deteksi delimiter (koma atau titik koma)
       const firstLine = lines[0];
       const delimiter = firstLine.includes(';') ? ';' : ',';
-
       for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const cols = lines[i].split(delimiter).map(c => c.replace(/^"|"$/g, '').trim());
         if (cols.length < 3) continue;
-
         newJobs.push({
           id: crypto.randomUUID(),
           category,
@@ -185,14 +165,10 @@ export const JobManager: React.FC<JobManagerProps> = ({
           createdBy: currentUser.email
         } as Job);
       }
-
       if (newJobs.length > 0) {
         onBulkAddJobs(newJobs);
         alert(`Berhasil mengimport ${newJobs.length} data pekerjaan.`);
-      } else {
-        alert("Tidak ada data valid yang ditemukan dalam file.");
       }
-      
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsText(file);
@@ -208,9 +184,6 @@ export const JobManager: React.FC<JobManagerProps> = ({
         <div className="flex flex-wrap items-center gap-2">
             {view === 'list' && (
               <>
-                <button onClick={downloadTemplate} title="Download Template" className="p-3 bg-white text-gray-400 border border-gray-100 rounded-xl hover:text-blue-600 transition-all">
-                    <FileType size={18} />
-                </button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImport} />
                 <button onClick={() => fileInputRef.current?.click()} title="Import Data" className="p-3 bg-white text-gray-400 border border-gray-100 rounded-xl hover:text-orange-600 transition-all">
                     <Upload size={18} />
@@ -228,19 +201,75 @@ export const JobManager: React.FC<JobManagerProps> = ({
 
       <div className="p-8 flex-1 bg-white">
         {view === 'form' ? (
-          <div className="max-w-4xl mx-auto p-10 bg-white rounded-[3rem] border border-gray-100 animate-in zoom-in-95 duration-500">
-            <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="max-w-4xl mx-auto p-4 md:p-12 bg-white rounded-[3rem] animate-in zoom-in-95 duration-500">
+            <h3 className="text-xl font-bold text-gray-800 mb-8">Input Data Baru</h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2"><h3 className="text-xl font-black text-gray-800 uppercase italic">Form <span className="text-[#EE2E24]">Pengisian</span></h3></div>
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Tanggal</label><input type="date" required className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={formData.dateInput} onChange={e => setFormData({...formData, dateInput: e.target.value})} /></div>
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Cabang / Dept</label><input type="text" required className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={formData.branchDept} onChange={e => setFormData({...formData, branchDept: e.target.value})} /></div>
-                <div className="md:col-span-2"><label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Nama Pekerjaan</label><input type="text" required className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={formData.jobType} onChange={e => setFormData({...formData, jobType: e.target.value})} /></div>
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Status</label><select className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Status})}><option value="Pending">Pending</option><option value="In Progress">In Progress</option><option value="Completed">Completed</option><option value="Hold">Hold</option><option value="Cancel">Cancel</option><option value="Drop">Drop</option></select></div>
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Deadline</label><input type="date" required className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} /></div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal</label>
+                  <input type="date" required className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all font-medium" value={formData.dateInput} onChange={e => setFormData({...formData, dateInput: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cabang / Dept</label>
+                  <input type="text" required placeholder="Contoh: Jakarta / Ops" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 transition-all" value={formData.branchDept} onChange={e => setFormData({...formData, branchDept: e.target.value})} />
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nama Pekerjaan</label>
+                  <input type="text" required placeholder="Deskripsi pekerjaan..." className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 transition-all" value={formData.jobType} onChange={e => setFormData({...formData, jobType: e.target.value})} />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Keterangan (Optional)</label>
+                  <textarea placeholder="Tambahkan catatan atau keterangan tambahan..." className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl min-h-[120px] focus:ring-4 focus:ring-blue-500/10 transition-all" value={formData.keterangan || ''} onChange={e => setFormData({...formData, keterangan: e.target.value})} />
+                </div>
+
+                {category === 'Penyesuaian' && (
+                  <div className="md:col-span-2 p-6 bg-blue-50/50 border border-blue-100 rounded-2xl space-y-4">
+                    <div className="flex items-center gap-2 text-blue-800 font-bold text-sm">
+                      <ClipboardCheck size={18} />
+                      <span>Validasi & Persetujuan</span>
+                    </div>
+                    <div className="flex flex-wrap gap-10">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input type="checkbox" className="hidden" checked={formData.konfirmasiCabang} onChange={e => setFormData({...formData, konfirmasiCabang: e.target.checked})} />
+                        {formData.konfirmasiCabang ? <CheckSquare className="text-blue-600" size={24} /> : <Square className="text-gray-300 group-hover:text-blue-400" size={24} />}
+                        <span className="text-sm font-medium text-gray-600">Konfirmasi Cabang</span>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input type="checkbox" className="hidden" checked={formData.disposisi} onChange={e => setFormData({...formData, disposisi: e.target.checked})} />
+                        {formData.disposisi ? <CheckSquare className="text-blue-600" size={24} /> : <Square className="text-gray-300 group-hover:text-blue-400" size={24} />}
+                        <span className="text-sm font-medium text-gray-600">Disposisi</span>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input type="checkbox" className="hidden" checked={formData.approve} onChange={e => setFormData({...formData, approve: e.target.checked})} />
+                        {formData.approve ? <CheckSquare className="text-blue-600" size={24} /> : <Square className="text-gray-300 group-hover:text-blue-400" size={24} />}
+                        <span className="text-sm font-medium text-gray-600">Approve</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl font-medium appearance-none" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Status})}>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Hold">Hold</option>
+                    <option value="Cancel">Cancel</option>
+                    <option value="Drop">Drop</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Deadline</label>
+                  <input type="date" required className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 transition-all font-medium" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                </div>
               </div>
-              <div className="flex justify-end gap-4">
-                <button type="button" onClick={handleCancelForm} className="px-8 py-3.5 border-2 border-gray-100 rounded-2xl font-black uppercase text-xs">Batal</button>
-                <button type="submit" className="px-12 py-3.5 bg-[#002F6C] text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-blue-100">Simpan Data</button>
+              
+              <div className="flex justify-end gap-3 pt-6">
+                <button type="button" onClick={handleCancelForm} className="px-10 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-all">Batal</button>
+                <button type="submit" className="px-12 py-3 bg-[#002F6C] text-white rounded-xl font-bold shadow-xl shadow-blue-100 hover:bg-blue-900 transition-all">Simpan Data</button>
               </div>
             </form>
           </div>
@@ -255,17 +284,23 @@ export const JobManager: React.FC<JobManagerProps> = ({
                     <th className="p-6">Cabang / Dept</th>
                     <th className="p-6">Status</th>
                     <th className="p-6">Deadline</th>
-                    <th className="p-6">Dibuat Oleh</th>
                     <th className="p-6 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredJobs.length === 0 ? (<tr><td colSpan={6} className="p-20 text-center text-gray-400 italic">Belum ada data pekerjaan.</td></tr>) : (
+                  {filteredJobs.length === 0 ? (<tr><td colSpan={5} className="p-20 text-center text-gray-400 italic">Belum ada data pekerjaan.</td></tr>) : (
                     filteredJobs.map((job) => (
                       <tr key={job.id} onClick={() => setSelectedJobDetail(job)} className="hover:bg-gray-50/80 transition-all cursor-pointer group">
                         <td className="p-6">
                           <div className="font-black text-gray-800 text-[13px] uppercase italic">{job.jobType}</div>
                           <div className="text-[9px] text-gray-400 font-bold uppercase mt-1 truncate max-w-[200px]">{job.keterangan || '-'}</div>
+                          {job.category === 'Penyesuaian' && (
+                            <div className="flex gap-2 mt-2">
+                                {job.konfirmasiCabang && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[8px] font-bold">K. Cabang</span>}
+                                {job.disposisi && <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[8px] font-bold">Disposisi</span>}
+                                {job.approve && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[8px] font-bold">Approved</span>}
+                            </div>
+                          )}
                         </td>
                         <td className="p-6 font-black text-gray-600">{job.branchDept}</td>
                         <td className="p-6"><span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase border ${getStatusStyle(job.status)}`}>{job.status}</span></td>
@@ -274,7 +309,6 @@ export const JobManager: React.FC<JobManagerProps> = ({
                             {new Date(job.deadline).toLocaleDateString()}
                            </span>
                         </td>
-                        <td className="p-6 text-[11px] font-bold text-gray-400 italic">{job.createdBy || 'System'}</td>
                         <td className="p-6 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={(e) => handleEdit(e, job)} className="p-3 text-gray-300 hover:text-blue-600 hover:bg-white rounded-xl shadow-sm"><Pencil size={18} /></button>

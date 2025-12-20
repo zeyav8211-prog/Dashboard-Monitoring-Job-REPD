@@ -69,7 +69,7 @@ export const Layout: React.FC<LayoutProps> = ({
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-transparent overflow-hidden">
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 z-20 bg-black bg-opacity-50 md:hidden"
@@ -78,7 +78,7 @@ export const Layout: React.FC<LayoutProps> = ({
       )}
 
       <aside 
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white/80 backdrop-blur-md shadow-xl transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -155,7 +155,7 @@ export const Layout: React.FC<LayoutProps> = ({
           </nav>
 
           <div className="p-4 border-t border-gray-100">
-            <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50/50 backdrop-blur-sm">
               <div 
                 className="flex items-center overflow-hidden cursor-pointer flex-1"
                 onClick={() => setShowPasswordModal(true)}
@@ -181,8 +181,8 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
-        <header className="md:hidden bg-white h-16 border-b border-gray-200 flex items-center justify-between px-4 z-10">
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-transparent">
+        <header className="md:hidden bg-white/80 backdrop-blur-md h-16 border-b border-gray-200 flex items-center justify-between px-4 z-10">
           <div className="flex items-center">
             <button 
               onClick={() => setIsSidebarOpen(true)}

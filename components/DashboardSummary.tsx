@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef } from 'react';
 import { Job, Status } from '../types';
 import { MENU_STRUCTURE } from '../constants';
@@ -6,7 +7,7 @@ import {
   Cell
 } from 'recharts';
 import { 
-  CheckCircle2, Clock, LayoutDashboard, RefreshCcw, X, Briefcase, TrendingUp, Target, Trash2, Eye, Calendar, User as UserIcon, FileText, MapPin, Info, Download, Upload, FileType, AlertTriangle, Bell, PauseCircle, XCircle
+  CheckCircle2, Clock, LayoutDashboard, RefreshCcw, X, Briefcase, TrendingUp, Target, Trash2, Eye, Calendar, User as UserIcon, FileText, MapPin, Info, Download, Upload, FileType, AlertTriangle, Bell, PauseCircle, XCircle, HardDrive, ShieldCheck
 } from 'lucide-react';
 
 interface DashboardSummaryProps {
@@ -19,6 +20,8 @@ interface DashboardSummaryProps {
   storageProvider?: 'GAS' | 'JSONBIN' | 'BOTH';
   onProviderChange?: (provider: 'GAS' | 'JSONBIN' | 'BOTH') => void;
   onForceSync?: () => void;
+  localSyncActive?: boolean;
+  onConnectLocal?: () => void;
 }
 
 const COLORS = ['#EE2E24', '#002F6C', '#10B981', '#F59E0B', '#6366F1', '#94a3b8'];
@@ -31,7 +34,9 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     onProviderChange,
     onForceSync,
     onBulkAddJobs,
-    onDeleteJob
+    onDeleteJob,
+    localSyncActive = false,
+    onConnectLocal
 }) => {
   const [drillDownFilter, setDrillDownFilter] = useState<{label: string, filter: (j: Job) => boolean} | null>(null);
   const [selectedJobDetail, setSelectedJobDetail] = useState<Job | null>(null);
@@ -104,18 +109,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     }
   };
 
-  const getDeadlineStyle = (deadline: string, status: Status) => {
-    if (['Completed', 'DONE', 'Cancel', 'Drop'].includes(status)) return '';
-    const today = new Date(); today.setHours(0,0,0,0);
-    const dl = new Date(deadline); dl.setHours(0,0,0,0);
-    const diffTime = dl.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 0) return 'animate-blink-red px-3 py-1 rounded-xl text-white shadow-lg';
-    if (diffDays === 1) return 'animate-blink-orange px-3 py-1 rounded-xl text-white shadow-lg';
-    return '';
-  };
-
   const downloadCSV = () => {
     const source = allJobs.length > 0 ? allJobs : jobs;
     const headers = ["ID", "Category", "SubCategory", "DateInput", "BranchDept", "JobType", "Status", "Deadline", "CreatedBy"];
@@ -131,20 +124,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `Data_Pekerjaan_Full_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const downloadTemplate = () => {
-    const headers = ["Category", "SubCategory", "DateInput", "BranchDept", "JobType", "Status", "Deadline"];
-    const example = "Report Surat,Email Masuk,2024-05-20,Jakarta,Email Urgent,Pending,2024-05-25";
-    const csvContent = headers.join(",") + "\n" + example;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "Template_Pekerjaan_Dashboard.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -202,27 +181,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                             <p className="text-white font-bold text-sm">Terdapat <span className="underline">{stats.h0Count} pekerjaan</span> yang harus selesai hari ini!</p>
                         </div>
                     </div>
-                    <div className="px-6 py-2 bg-white/20 rounded-full text-white text-[10px] font-black uppercase tracking-widest">Detail Pekerjaan</div>
-                </div>
-            )}
-            {stats.h1Count > 0 && (
-                <div 
-                    onClick={() => handleStatClick('Deadline Besok (H-1)', (j) => {
-                        const today = new Date(); today.setHours(0,0,0,0);
-                        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-                        const dl = new Date(j.deadline); dl.setHours(0,0,0,0);
-                        return dl.getTime() === tomorrow.getTime() && !['Completed', 'DONE', 'Drop', 'Cancel'].includes(j.status);
-                    })}
-                    className="animate-blink-orange p-4 rounded-[2rem] flex items-center justify-between cursor-pointer shadow-2xl border-2 border-orange-500 hover:scale-[1.01] transition-transform"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-2 rounded-full"><Bell size={24} className="text-white" /></div>
-                        <div>
-                            <p className="text-white font-black uppercase text-[10px] tracking-widest">Peringatan Mendatang (H-1)</p>
-                            <p className="text-white font-bold text-sm">Terdapat <span className="underline">{stats.h1Count} pekerjaan</span> yang deadline besok.</p>
-                        </div>
-                    </div>
-                    <div className="px-6 py-2 bg-white/20 rounded-full text-white text-[10px] font-black uppercase tracking-widest">Cek Data</div>
                 </div>
             )}
         </div>
@@ -245,14 +203,31 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         </div>
 
         <div className="flex flex-col md:flex-row items-center gap-3">
+            <div className="flex items-center gap-2 bg-white p-3 rounded-[2rem] shadow-xl border border-gray-100 transition-all hover:shadow-2xl">
+                <div className={`p-2 rounded-full ${localSyncActive ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                    {localSyncActive ? <ShieldCheck size={20} /> : <HardDrive size={20} />}
+                </div>
+                <div className="mr-4">
+                    <p className="text-[8px] font-black uppercase text-gray-400 leading-none">Local Server Backup</p>
+                    <p className={`text-[10px] font-black uppercase ${localSyncActive ? 'text-green-600' : 'text-gray-400'}`}>
+                        {localSyncActive ? 'Drive X: Connected' : 'Disconnected'}
+                    </p>
+                </div>
+                {!localSyncActive && (
+                    <button 
+                        onClick={onConnectLocal}
+                        className="px-4 py-2 bg-[#002F6C] text-white text-[9px] font-black uppercase rounded-xl hover:bg-blue-900 transition-all"
+                    >
+                        Connect X: Drive
+                    </button>
+                )}
+            </div>
+
             <div className="flex items-center gap-2 bg-white p-2 rounded-[2rem] shadow-xl border border-gray-100">
-                <button onClick={downloadTemplate} title="Download Template CSV" className="p-3 text-blue-600 hover:bg-blue-50 rounded-full transition-all">
-                    <FileType size={18} />
-                </button>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImport} />
                 <button onClick={() => fileInputRef.current?.click()} title="Import Data CSV" className="p-3 text-orange-600 hover:bg-orange-50 rounded-full transition-all">
                     <Upload size={18} />
                 </button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImport} />
                 <button onClick={downloadCSV} title="Export Semua Data" className="p-3 text-green-600 hover:bg-green-50 rounded-full transition-all">
                     <Download size={18} />
                 </button>
@@ -272,8 +247,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                     </button>
                     ))}
                 </div>
-                <div className="h-8 w-px bg-gray-100 mx-2"></div>
-                <button onClick={onForceSync} className={`p-3 bg-gray-50 text-blue-600 rounded-full hover:bg-blue-600 hover:text-white transition-all ${isLoading ? 'animate-spin' : ''}`}>
+                <button onClick={onForceSync} className={`p-3 bg-gray-50 text-blue-600 rounded-full hover:bg-blue-600 hover:text-white transition-all`}>
                     <RefreshCcw size={18} />
                 </button>
             </div>
@@ -309,9 +283,6 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
             </div>
             <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.1em] mb-1">{item.label}</p>
             <p className="text-3xl font-black text-gray-800 tracking-tighter leading-none">{item.value.toLocaleString()}</p>
-            <div className="absolute -bottom-2 -right-2 opacity-[0.02] group-hover:opacity-[0.06] transition-opacity">
-                <item.icon size={80} />
-            </div>
           </div>
         ))}
       </div>
@@ -323,13 +294,11 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
               <TrendingUp size={28} className="text-[#EE2E24]" />
               Workload <span className="text-[#EE2E24]">Distribution</span>
             </h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Klik grafik untuk drill-down detail data</p>
           </div>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
                 data={barData} 
-                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                 onClick={(data) => {
                    if (data && data.activeLabel) {
                      handleStatClick(String(data.activeLabel), (j) => j.category === String(data.activeLabel));
@@ -339,7 +308,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} tick={{fontWeight: '900', fill: '#94a3b8'}} interval={0} />
                 <YAxis hide />
-                <Tooltip cursor={{fill: '#f8fafc', radius: 20}} contentStyle={{borderRadius: '2rem', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '20px'}} />
+                <Tooltip cursor={{fill: '#f8fafc', radius: 20}} />
                 <Bar dataKey="count" radius={[20, 20, 10, 10]} barSize={45} className="cursor-pointer">
                   {barData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                 </Bar>
@@ -351,8 +320,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
         <div className="bg-[#002F6C] p-12 rounded-[4rem] shadow-2xl relative overflow-hidden flex flex-col justify-between cursor-pointer group" onClick={() => handleStatClick('Success Rate', (j) => ['Completed', 'DONE'].includes(j.status))}>
           <div className="relative z-10 text-white">
             <h3 className="text-3xl font-black uppercase italic mb-10 leading-none">Efficiency <span className="text-[#EE2E24]">Score</span></h3>
-            <div className="space-y-10">
-              <div className="p-10 bg-white/10 backdrop-blur-xl rounded-[3rem] border border-white/20 shadow-2xl group-hover:bg-white/20 transition-all">
+            <div className="p-10 bg-white/10 backdrop-blur-xl rounded-[3rem] border border-white/20 shadow-2xl group-hover:bg-white/20 transition-all">
                 <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Success Rate</p>
                 <div className="flex items-end gap-3">
                   <p className="text-8xl font-black leading-none tracking-tighter">{successRate}%</p>
@@ -361,81 +329,61 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                 <div className="w-full bg-white/10 h-3 rounded-full mt-8 overflow-hidden">
                     <div className="bg-green-400 h-full transition-all duration-1000" style={{ width: `${successRate}%` }}></div>
                 </div>
-              </div>
             </div>
           </div>
           <div className="absolute -top-10 -right-10 opacity-10"><LayoutDashboard size={250} className="text-white" /></div>
         </div>
       </div>
 
+      {/* DRILL DOWN MODAL */}
       {drillDownFilter && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-white w-full max-w-6xl h-[85vh] rounded-[4rem] shadow-2xl flex flex-col overflow-hidden">
-            <div className="p-10 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <div>
-                <h4 className="text-3xl font-black text-gray-800 uppercase italic tracking-tighter">Detail Data: <span className="text-[#EE2E24]">{drillDownFilter.label}</span></h4>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">Menampilkan {filteredDrillDownJobs.length} records</p>
-              </div>
-              <button onClick={() => setDrillDownFilter(null)} className="p-4 bg-white text-gray-400 hover:text-red-600 rounded-[1.5rem] shadow-xl transition-all"><X size={28}/></button>
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
+            <div className="bg-white w-full max-w-6xl h-[85vh] rounded-[4rem] shadow-2xl flex flex-col overflow-hidden border-4 border-white/20">
+                <div className="p-10 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <div>
+                        <h4 className="text-2xl font-black text-gray-800 uppercase italic tracking-tighter">Listing: <span className="text-[#EE2E24]">{drillDownFilter.label}</span></h4>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">Menampilkan {filteredDrillDownJobs.length} data pekerjaan</p>
+                    </div>
+                    <button onClick={() => setDrillDownFilter(null)} className="p-4 bg-white text-gray-400 hover:text-red-600 rounded-2xl shadow-xl hover:shadow-red-50 transition-all active:scale-95"><X size={28}/></button>
+                </div>
+                <div className="flex-1 overflow-auto p-10 scrollbar-hide">
+                    <table className="w-full text-xs text-left border-separate border-spacing-y-4">
+                        <thead className="sticky top-0 z-20 bg-gray-50/90 backdrop-blur-md rounded-2xl font-black uppercase text-gray-400 tracking-widest">
+                            <tr>
+                                <th className="p-6">Pekerjaan</th>
+                                <th className="p-6">Kategori</th>
+                                <th className="p-6">Unit</th>
+                                <th className="p-6">Deadline</th>
+                                <th className="p-6 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredDrillDownJobs.map((job) => (
+                                <tr 
+                                  key={job.id} 
+                                  onClick={() => setSelectedJobDetail(job)}
+                                  className="hover:bg-gray-50 transition-all group bg-white shadow-sm cursor-pointer"
+                                >
+                                    <td className="p-6 rounded-l-[2rem] border-y border-l border-gray-100">
+                                        <div className="font-black text-gray-800 uppercase italic text-sm">{job.jobType}</div>
+                                        <div className="text-[10px] text-gray-400 font-bold uppercase">{job.subCategory}</div>
+                                    </td>
+                                    <td className="p-6 border-y border-gray-100 font-bold text-gray-500 uppercase">{job.category}</td>
+                                    <td className="p-6 border-y border-gray-100 font-black text-gray-800">{job.branchDept}</td>
+                                    <td className="p-6 border-y border-gray-100 font-bold text-gray-500 italic">{new Date(job.deadline).toLocaleDateString()}</td>
+                                    <td className="p-6 rounded-r-[2rem] border-y border-r border-gray-100 text-center">
+                                        <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getStatusStyle(job.status)}`}>{job.status}</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div className="flex-1 overflow-auto p-10 scrollbar-hide">
-              <div className="overflow-x-auto rounded-[2.5rem] border border-gray-100 shadow-sm bg-white overflow-hidden">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b">
-                      <tr>
-                        <th className="p-6">Pekerjaan</th>
-                        <th className="p-6">Cabang / Dept</th>
-                        <th className="p-6">Status</th>
-                        <th className="p-6">Deadline</th>
-                        <th className="p-6">Dibuat Oleh</th>
-                        <th className="p-6 text-center">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {filteredDrillDownJobs.length === 0 ? (
-                        <tr><td colSpan={6} className="p-20 text-center text-gray-400 italic">Data tidak ditemukan.</td></tr>
-                      ) : (
-                        filteredDrillDownJobs.map((job) => (
-                          <tr key={job.id} onClick={() => setSelectedJobDetail(job)} className="hover:bg-gray-50/80 transition-all cursor-pointer group">
-                            <td className="p-6">
-                              <div className="font-black text-gray-800 text-[13px] uppercase italic">{job.jobType}</div>
-                              <div className="text-[9px] text-gray-400 font-bold uppercase mt-1">{job.category} / {job.subCategory}</div>
-                            </td>
-                            <td className="p-6 font-black text-gray-600">{job.branchDept}</td>
-                            <td className="p-6">
-                              <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase border ${getStatusStyle(job.status)}`}>{job.status}</span>
-                            </td>
-                            <td className="p-6">
-                              <span className={`font-black text-gray-500 text-[11px] ${getDeadlineStyle(job.deadline, job.status)}`}>
-                                {new Date(job.deadline).toLocaleDateString()}
-                              </span>
-                            </td>
-                            <td className="p-6 text-[11px] font-bold text-gray-400 truncate max-w-[120px]">{job.createdBy || 'System'}</td>
-                            <td className="p-6 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                {['Cancel', 'Drop'].includes(job.status) && (
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); onDeleteJob(job.id); }}
-                                    className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                                    title="Hapus Pekerjaan"
-                                  >
-                                    <Trash2 size={18} />
-                                  </button>
-                                )}
-                                <div className="p-3 text-gray-300 group-hover:text-[#002F6C] transition-colors"><Eye size={18}/></div>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
+      {/* JOB DETAIL MODAL */}
       {selectedJobDetail && (
         <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in zoom-in-95 duration-300">
            <div className="bg-white w-full max-w-2xl rounded-[4rem] shadow-2xl overflow-hidden border-4 border-white/20">
@@ -462,13 +410,13 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
                         <p className="font-black text-red-600 text-lg">{new Date(selectedJobDetail.deadline).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Target size={14}/> Status</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><FileText size={14}/> Status</p>
                         <span className={`inline-block px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border ${getStatusStyle(selectedJobDetail.status)}`}>{selectedJobDetail.status}</span>
                       </div>
                   </div>
                   <div className="p-8 bg-gray-50 rounded-[2.5rem] border border-gray-100">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Info size={14}/> Deskripsi & Catatan</p>
-                    <p className="text-gray-600 font-medium leading-relaxed">{selectedJobDetail.keterangan || 'Tidak ada keterangan tambahan untuk pekerjaan ini.'}</p>
+                    <p className="text-gray-600 font-medium leading-relaxed">{selectedJobDetail.keterangan || 'Tidak ada keterangan tambahan.'}</p>
                   </div>
                   <div className="flex justify-end pt-4">
                     <button onClick={() => setSelectedJobDetail(null)} className="px-12 py-4 bg-[#002F6C] text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-900 transition-all">Tutup Detail</button>

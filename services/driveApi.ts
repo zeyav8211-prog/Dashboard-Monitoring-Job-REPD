@@ -14,13 +14,12 @@ export const driveApi = {
    */
   async getData(): Promise<AppData | null> {
     try {
-      // Add timestamp to prevent caching issues
       const url = `${GOOGLE_SCRIPT_URL}?action=read&t=${new Date().getTime()}`;
       
       const response = await fetch(url, {
         method: 'GET',
         redirect: 'follow', 
-        credentials: 'omit' // Vital for avoiding CORS errors with GAS Web App
+        credentials: 'omit'
       });
       
       if (!response.ok) {
@@ -34,7 +33,6 @@ export const driveApi = {
         return null;
       }
 
-      // Ensure all fields exist
       return {
         jobs: data.jobs || [],
         users: data.users || [],
@@ -42,7 +40,7 @@ export const driveApi = {
       };
     } catch (error) {
       console.error('Error fetching data from Drive:', error);
-      throw error;
+      return null;
     }
   },
 
@@ -51,15 +49,18 @@ export const driveApi = {
    */
   async saveData(data: AppData): Promise<boolean> {
     try {
+      // Stringify payload before fetch to monitor size for debugging
+      const bodyStr = JSON.stringify(data);
+      console.log(`Syncing to GAS. Payload size: ${(bodyStr.length / 1024).toFixed(2)} KB`);
+
       const response = await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         credentials: 'omit',
         redirect: 'follow',
-        // Text/plain prevents preflight OPTIONS request in some environments
         headers: {
           'Content-Type': 'text/plain;charset=utf-8', 
         },
-        body: JSON.stringify(data)
+        body: bodyStr
       });
 
       if (!response.ok) {
@@ -70,6 +71,7 @@ export const driveApi = {
       return result.status === 'success';
     } catch (error) {
       console.error('Error saving data to Drive:', error);
+      // We don't throw here to avoid killing the app's online state instantly
       return false;
     }
   }
